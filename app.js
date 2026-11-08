@@ -47,13 +47,13 @@ function togglePasswordVisibility(inputId, btnElem) {
 // CONFIG FIREBASE & CLOUD RELAY FALLBACK
 // =========================================================================
 const firebaseConfig = {
-    apiKey: "AIzaSyCMCJL-0uN1uhqB4xnK0TpIw13cGZEvYfo",
-    authDomain: "mona-finance-2d09c.firebaseapp.com",
-    projectId: "mona-finance-2d09c",
-    storageBucket: "mona-finance-2d09c.firebasestorage.app",
-    messagingSenderId: "436142712801",
-    appId: "1:436142712801:web:2e1a48565b135fe68fd4a0",
-    measurementId: "G-VW99ZB4BSD"
+    apiKey: "[MASUKKAN_API_KEY_MU_DISINI]",
+    authDomain: "[MASUKKAN_AUTH_MU_DISINI]",
+    projectId: "[PROJECT-IDMU]",
+    storageBucket: "[UNTUK-STORAGE-NYA]",
+    messagingSenderId: "[MASSAGING_IDNYA]",
+    appId: "1:DISINI-NO-NYA:web:KODE-UNIK",
+    measurementId: "UNTUKID"
 };
 
 let db = null;
@@ -224,11 +224,11 @@ function saveData() {
             const cleanUser = cleanAlphaNum(currentUser.username || currentUser.nickname);
             db.collection('users').doc(cleanUser).set({
                 nickname: sanitizeText(currentUser.nickname),
-                                                      username: cleanAlphaNum(currentUser.username || currentUser.nickname),
-                                                      password: currentUser.password,
-                                                      goals: goals,
-                                                      dailyLogs: dailyLogs,
-                                                      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                username: cleanAlphaNum(currentUser.username || currentUser.nickname),
+                password: currentUser.password,
+                goals: goals,
+                dailyLogs: dailyLogs,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
         } else {
             pushCloudData();
@@ -429,7 +429,6 @@ function handleAuthLogin() {
         return;
     }
 
-    // Direct Firestore lookup for Multi-Device connection
     db.collection('users').doc(searchKey).get().then((doc) => {
         if (doc.exists && doc.data().password === rawPass) {
             const data = doc.data();
@@ -439,22 +438,21 @@ function handleAuthLogin() {
             updateAuthUI();
             closeProfileModal();
         } else {
-            // Secondary lookup by Username field
             db.collection('users').where('username', '==', searchKey).get().then((querySnapshot) => {
                 let matchedDoc = null;
                 querySnapshot.forEach(d => {
                     if (d.data().password === rawPass) matchedDoc = d.data();
                 });
 
-                    if (matchedDoc) {
-                        currentUser = { username: matchedDoc.username, nickname: matchedDoc.nickname, password: rawPass };
-                        localStorage.setItem('mona_user_session', JSON.stringify(currentUser));
-                        setupSync();
-                        updateAuthUI();
-                        closeProfileModal();
-                    } else {
-                        alert('Username/Nickname atau Password salah!');
-                    }
+                if (matchedDoc) {
+                    currentUser = { username: matchedDoc.username, nickname: matchedDoc.nickname, password: rawPass };
+                    localStorage.setItem('mona_user_session', JSON.stringify(currentUser));
+                    setupSync();
+                    updateAuthUI();
+                    closeProfileModal();
+                } else {
+                    alert('Username/Nickname atau Password salah!');
+                }
             }).catch(() => alert('Akun tidak ditemukan atau password salah!'));
         }
     }).catch(() => {
@@ -812,7 +810,7 @@ function renderDailyLogs() {
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-            <td style="white-space:nowrap; color:var(--text-secondary); font-size:0.78rem;">
+            <td style="white-space:nowrap; color:var(--text-secondary); font-size:0.75rem;">
             <strong>${shortDate}</strong>
             </td>
             <td class="item-info-cell">
@@ -822,12 +820,12 @@ function renderDailyLogs() {
             </div>
             ${log.notes ? `<div class="item-meta" title="${sanitizeText(log.notes)}">${sanitizeText(log.notes)}</div>` : ''}
             </td>
-            <td class="text-right font-bold" style="white-space:nowrap; color: ${log.type === 'PEMASUKAN' ? 'var(--accent-green)' : (log.type === 'TABUNGAN_GOAL' ? 'var(--accent-purple)' : 'var(--text-primary)')};">
+            <td class="text-right font-bold" style="white-space:nowrap; font-size:0.76rem; color: ${log.type === 'PEMASUKAN' ? 'var(--accent-green)' : (log.type === 'TABUNGAN_GOAL' ? 'var(--accent-purple)' : 'var(--text-primary)')};">
             ${log.type === 'PEMASUKAN' ? '+' : '-'}${formatRupiah(log.amount)}
             </td>
             <td class="text-center" style="white-space:nowrap;">
-            <button class="btn-blue" style="padding:2px 5px; font-size:0.7rem; min-height:26px; margin-right:2px;" onclick="openEditLogModal(${log.id})">Edit</button>
-            <button class="btn-rose" style="padding:2px 5px; font-size:0.7rem; min-height:26px;" onclick="deleteDailyLog(${log.id})">Hapus</button>
+            <button class="btn-blue" style="padding:2px 4px; font-size:0.68rem; min-height:24px; margin-right:2px;" onclick="openEditLogModal(${log.id})">Edit</button>
+            <button class="btn-rose" style="padding:2px 4px; font-size:0.68rem; min-height:24px;" onclick="deleteDailyLog(${log.id})">Hapus</button>
             </td>
             `;
             tableBody.appendChild(tr);
@@ -1014,12 +1012,12 @@ function addFundsToGoal(id) {
     if (amount > 0) {
         dailyLogs.unshift({
             id: Date.now(),
-                          date: new Date().toISOString().split('T')[0],
-                          type: 'TABUNGAN_GOAL',
-                          category: `GOAL_${goal.id}`,
-                          title: `Setoran Target: ${goal.name}`,
-                          amount: amount,
-                          notes: 'Alokasi setoran target'
+            date: new Date().toISOString().split('T')[0],
+            type: 'TABUNGAN_GOAL',
+            category: `GOAL_${goal.id}`,
+            title: `Setoran Target: ${goal.name}`,
+            amount: amount,
+            notes: 'Alokasi setoran target'
         });
         goal.current += amount;
         saveData();
@@ -1030,59 +1028,119 @@ function addFundsToGoal(id) {
 }
 
 // =========================================================================
-// CANVAS GRAPHICS & THEME ADAPTIVE ENGINE
+// CANVAS GRAPHICS & DYNAMIC TREN REAL-TIME ENGINE
 // =========================================================================
-function renderDesktopAnalytics(categoryExpenses, totalOutflow) {
-    if (window.innerWidth < 768) return;
-
+function renderDynamicAnalytics(categoryExpenses, filteredLogs) {
     const isDark = document.body.classList.contains('dark-mode');
     const labelColor = isDark ? '#cbd5e1' : '#475569';
     const barColor = isDark ? '#3b82f6' : '#2563eb';
+    const gridColor = isDark ? '#334155' : '#e2e8f0';
 
+    // 1. Category Bar Chart
     const canvasCat = document.getElementById('categoryChart');
     if (canvasCat && canvasCat.getContext) {
         const ctx = canvasCat.getContext('2d');
-        ctx.clearRect(0, 0, canvasCat.width, canvasCat.height);
+        const w = canvasCat.width;
+        const h = canvasCat.height;
+        ctx.clearRect(0, 0, w, h);
 
         const categories = Object.keys(categoryExpenses);
         const values = Object.values(categoryExpenses);
         const maxVal = Math.max(...values, 100000);
 
-        const barWidth = 30;
-        const gap = 15;
-        let startX = 20;
+        const barWidth = 24;
+        const gap = 14;
+        let startX = 15;
 
         categories.forEach((cat, idx) => {
             const val = values[idx];
             const barHeight = Math.min(100, (val / maxVal) * 100);
 
             ctx.fillStyle = barColor;
-            ctx.fillRect(startX, 120 - barHeight, barWidth, barHeight);
+            ctx.fillRect(startX, 130 - barHeight, barWidth, barHeight);
 
             ctx.fillStyle = labelColor;
             ctx.font = '9px sans-serif';
-            ctx.fillText(cat.substring(0, 6), startX, 135);
+            ctx.fillText(cat.substring(0, 5), startX, 148);
             startX += barWidth + gap;
         });
     }
 
+    // 2. Real-Time Dynamic Trend Line Chart (Last 7 Days Outflow)
     const canvasTrend = document.getElementById('trendChart');
     if (canvasTrend && canvasTrend.getContext) {
         const ctx = canvasTrend.getContext('2d');
-        ctx.clearRect(0, 0, canvasTrend.width, canvasTrend.height);
+        const w = canvasTrend.width;
+        const h = canvasTrend.height;
+        ctx.clearRect(0, 0, w, h);
+
+        // Generate 7 days date labels (H-6 to Today)
+        const daysMap = {};
+        const daysLabels = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const shortLabel = `${d.getDate()}/${d.getMonth()+1}`;
+            daysMap[dateStr] = 0;
+            daysLabels.push({ dateStr, shortLabel });
+        }
+
+        // Aggregate expense & savings allocations
+        dailyLogs.forEach(log => {
+            if (daysMap.hasOwnProperty(log.date) && log.type !== 'PEMASUKAN') {
+                daysMap[log.date] += log.amount;
+            }
+        });
+
+        const trendValues = daysLabels.map(item => daysMap[item.dateStr]);
+        const maxTrendVal = Math.max(...trendValues, 100000);
+
+        // Draw Line & Area
+        const stepX = (w - 40) / 6;
+        const points = trendValues.map((val, idx) => {
+            const x = 20 + idx * stepX;
+            const y = 130 - (val / maxTrendVal) * 90;
+            return { x, y, val };
+        });
+
+        // Gradient Fill
+        const grad = ctx.createLinearGradient(0, 20, 0, 130);
+        grad.addColorStop(0, isDark ? 'rgba(124, 58, 237, 0.4)' : 'rgba(124, 58, 237, 0.2)');
+        grad.addColorStop(1, 'rgba(124, 58, 237, 0)');
 
         ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.lineTo(points[points.length - 1].x, 130);
+        ctx.lineTo(points[0].x, 130);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Stroke Line
+        ctx.beginPath();
         ctx.strokeStyle = '#7c3aed';
-        ctx.lineWidth = 2;
-        ctx.moveTo(20, 100);
-        ctx.lineTo(80, 40);
-        ctx.lineTo(140, 80);
-        ctx.lineTo(200, 30);
+        ctx.lineWidth = 2.5;
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+        }
         ctx.stroke();
 
-        ctx.fillStyle = labelColor;
-        ctx.font = '11px sans-serif';
-        ctx.fillText('Status Operasional Evaluasi: Normal & Terkontrol', 20, 135);
+        // Points & Labels
+        points.forEach((p, idx) => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#7c3aed';
+            ctx.fill();
+
+            ctx.fillStyle = labelColor;
+            ctx.font = '9px sans-serif';
+            ctx.fillText(daysLabels[idx].shortLabel, p.x - 10, 148);
+        });
     }
 }
 
@@ -1171,11 +1229,11 @@ function updateAllCalculations() {
             if (g.target > 0 && (g.monthly * m + g.current) >= g.target) reachedGoals.push(sanitizeText(g.name));
         });
 
-            let statusBadge = reachedGoals.length > 0
+        let statusBadge = reachedGoals.length > 0
             ? `<span class="goal-category" style="background:#dcfce7; color:#166534;">Ready: ${reachedGoals.join(', ')}</span>`
             : '<span style="color:var(--text-secondary); font-size:0.8rem;">Progres Menabung</span>';
 
-            timelineHtml += `
+        timelineHtml += `
             <tr>
             <td class="text-center font-bold">Bulan ${m}</td>
             <td class="text-right">${formatRupiah(estMonthlyIncome)}</td>
@@ -1183,12 +1241,12 @@ function updateAllCalculations() {
             <td class="text-right font-bold" style="color: var(--accent-blue);">${formatRupiah(accumSavings)}</td>
             <td>${statusBadge}</td>
             </tr>
-            `;
+        `;
     }
     document.getElementById('timelineTableBody').innerHTML = timelineHtml;
 
     renderDailyLogs();
-    renderDesktopAnalytics(categoryExpenses, totalOutflow);
+    renderDynamicAnalytics(categoryExpenses, filteredLogs);
 }
 
 window.onload = function() {
