@@ -88,20 +88,24 @@
         </div>
     </div>
 
-    <!-- TABLET & LAPTOP VISUAL ANALYTICS (DESKTOP MODE ONLY) -->
+    <!-- RESPONSIVE VISUAL ANALYTICS CONTAINER -->
     <div class="analytics-desktop-container">
         <div class="panel-header" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">
             <div class="panel-title">Visual Analytics Dashboard (Monitoring Evaluasi Kas)</div>
-            <span style="font-size:0.75rem; color:var(--text-muted);">Terdeteksi Mode Tablet / Laptop</span>
+            <span style="font-size:0.75rem; color:var(--text-muted);">Grafik Terhubung Real-Time</span>
         </div>
         <div class="analytics-grid">
             <div class="chart-box">
                 <div class="chart-title">Alokasi Kas Menurut Kategori Pos</div>
-                <canvas id="categoryChart" height="150"></canvas>
+                <div class="canvas-wrapper">
+                    <canvas id="categoryChart" width="320" height="160"></canvas>
+                </div>
             </div>
             <div class="chart-box">
-                <div class="chart-title">Intensitas Pengeluaran Harian & Tren Evaluasi</div>
-                <canvas id="trendChart" height="150"></canvas>
+                <div class="chart-title">Tren Pengeluaran Harian (7 Hari Terakhir)</div>
+                <div class="canvas-wrapper">
+                    <canvas id="trendChart" width="320" height="160"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -221,8 +225,8 @@
                             <tr>
                                 <th style="width: 65px;">Tanggal</th>
                                 <th>Deskripsi & Pos Kas</th>
-                                <th class="text-right" style="width: 95px;">Nominal (Rp)</th>
-                                <th class="text-center" style="width: 75px;">Aksi</th>
+                                <th class="text-right" style="width: 100px;">Nominal (Rp)</th>
+                                <th class="text-center" style="width: 80px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="dailyLogsTableBody">
@@ -305,7 +309,7 @@
         </div>
     </div>
 
-    <!-- MODAL PROFIL & MANAJEMEN AKUN -->
+    <!-- MODAL PROFIL & MANAJEMEN AKUN (AUTH, THEME, EDIT PASSWORD, RESET, DELETE ACCOUNT) -->
     <div class="modal-overlay" id="profileModal">
         <div class="modal-card">
             <div class="modal-header">
@@ -340,12 +344,7 @@
                         <label>Password</label>
                         <div class="input-password-wrapper">
                             <input type="password" id="loginPassword" placeholder="••••••••" required>
-                            <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Toggle password visibility">
-                                <svg class="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                            </button>
+                            <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
                         </div>
                     </div>
 
@@ -371,12 +370,7 @@
                         <label>Password (Kombinasi Huruf & Angka)</label>
                         <div class="input-password-wrapper">
                             <input type="password" id="regPassword" placeholder="••••••••" required>
-                            <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('regPassword', this)" aria-label="Toggle password visibility">
-                                <svg class="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                            </button>
+                            <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('regPassword', this)">👁️</button>
                         </div>
                     </div>
 
@@ -402,12 +396,7 @@
                             <label>Password Baru</label>
                             <div class="input-password-wrapper">
                                 <input type="password" id="newPasswordInput" placeholder="••••••••" required>
-                                <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('newPasswordInput', this)" aria-label="Toggle password visibility">
-                                    <svg class="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                        <circle cx="12" cy="12" r="3"></circle>
-                                    </svg>
-                                </button>
+                                <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('newPasswordInput', this)">👁️</button>
                             </div>
                         </div>
                         <button type="submit" class="btn-blue" style="width: 100%; min-height: 34px; font-size: 0.78rem;">Simpan Password Baru</button>
