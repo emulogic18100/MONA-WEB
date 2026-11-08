@@ -88,20 +88,24 @@
         </div>
     </div>
 
-    <!-- TABLET & LAPTOP VISUAL ANALYTICS (DESKTOP MODE ONLY) -->
+    <!-- RESPONSIVE VISUAL ANALYTICS CONTAINER -->
     <div class="analytics-desktop-container">
         <div class="panel-header" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">
             <div class="panel-title">Visual Analytics Dashboard (Monitoring Evaluasi Kas)</div>
-            <span style="font-size:0.75rem; color:var(--text-muted);">Terdeteksi Mode Tablet / Laptop</span>
+            <span style="font-size:0.75rem; color:var(--text-muted);">Grafik Terhubung Real-Time</span>
         </div>
         <div class="analytics-grid">
             <div class="chart-box">
                 <div class="chart-title">Alokasi Kas Menurut Kategori Pos</div>
-                <canvas id="categoryChart" height="150"></canvas>
+                <div class="canvas-wrapper">
+                    <canvas id="categoryChart" width="320" height="160"></canvas>
+                </div>
             </div>
             <div class="chart-box">
-                <div class="chart-title">Intensitas Pengeluaran Harian & Tren Evaluasi</div>
-                <canvas id="trendChart" height="150"></canvas>
+                <div class="chart-title">Tren Pengeluaran Harian (7 Hari Terakhir)</div>
+                <div class="canvas-wrapper">
+                    <canvas id="trendChart" width="320" height="160"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -219,10 +223,10 @@
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 75px;">Tanggal</th>
+                                <th style="width: 65px;">Tanggal</th>
                                 <th>Deskripsi & Pos Kas</th>
-                                <th class="text-right" style="width: 110px;">Nominal (Rp)</th>
-                                <th class="text-center" style="width: 85px;">Aksi</th>
+                                <th class="text-right" style="width: 100px;">Nominal (Rp)</th>
+                                <th class="text-center" style="width: 80px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="dailyLogsTableBody">
