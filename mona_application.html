@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <title>MoNa - Personal Wealth & Financial Manager</title>
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="asset/style/style.css">
+
+    <!-- Firebase SDK (v9+ Compatibility Mode + Auth) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <!-- SheetJS with Styling Support (xlsx-js-style) for Colored Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+
+    <!-- EXECUTIVE PDF PRINT HEADER -->
+    <div class="print-only-header">
+        <div class="print-header-top">
+            <div>
+                <div class="print-brand">MoNa Financial Statement</div>
+                <div class="print-tagline">Laporan Ringkasan Eksekutif & Mutasi Rekening</div>
+            </div>
+            <div class="print-meta-box">
+                <div>Pemilik Akun: <strong id="pdfPrintOwner">Pengguna Lokal</strong></div>
+                <div>Periode Laporan: <strong id="pdfPrintFilter">Semua Data</strong></div>
+                <div>Tanggal Cetak: <strong id="pdfPrintDate">-</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIXED TOP NAVBAR -->
+    <header class="sticky-navbar">
+        <div class="navbar-inner">
+            <div class="header-brand-wrap">
+                <div class="header-avatar-box" id="headerAvatarBox" title="Buka Profil & Pengaturan">
+                    <img id="headerAvatarImg" src="" alt="Foto Profil" style="display:none;">
+                    <svg id="headerAvatarDefault" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+                <div class="header-brand">
+                    <h1>MoNa Financial</h1>
+                    <p>Sistem Manajemen Tabungan & Arus Kas Presisi</p>
+                </div>
+            </div>
+
+            <div class="header-actions-wrap">
+                <div class="user-auth-status" id="userAuthStatus" style="cursor:pointer;" title="Klik untuk membuka Profil & Ekspor Laporan">
+                    <span class="sync-dot" id="syncStatusDot"></span>
+                    <span id="userStatusText">Mode Tamu (Lokal)</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NOTIFIKASI MODE TAMU (DAPAT DITUTUP DENGAN IKON VEKTOR X) -->
+    <div id="localGuestSyncNotice" class="guest-sync-notice no-print">
+        <div class="guest-notice-text">
+            <strong>Mode Tamu Lokal:</strong> Anda dapat langsung menggunakan seluruh fitur MoNa sekarang, namun progres hanya tersimpan sementara di browser perangkat ini dan belum tersinkronisasi lintas perangkat.
+        </div>
+        <div class="guest-notice-actions">
+            <button type="button" class="btn-blue" id="btnBannerOpenLogin" style="padding: 5px 12px; min-height: 30px; font-size: 0.74rem; white-space: nowrap;">Login / Simpan Permanen</button>
+            <button type="button" class="btn-dismiss-notice" id="btnCloseGuestNotice" title="Tutup notifikasi" aria-label="Tutup notifikasi mode tamu">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- METRICS DASHBOARD -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">Total Pemasukan</div>
+            <div class="metric-value" id="dispIncome">Rp0,00</div>
+            <div class="metric-sub" id="dispFilterLabel1">Total Pemasukan Masuk Kas</div>
+        </div>
+
+        <div class="metric-card rose">
+            <div class="metric-label">Total Pengeluaran</div>
+            <div class="metric-value" id="dispExpense">Rp0,00</div>
+            <div class="metric-sub" id="dispFilterLabel2">Realisasi Pengeluaran Kas</div>
+        </div>
+
+        <div class="metric-card purple">
+            <div class="metric-label">Total Saldo Tersisa (Bebas)</div>
+            <div class="metric-value" id="dispNet">Rp0,00</div>
+            <div class="metric-sub" id="dispAccountModeSub">Akumulasi Seluruh Media Tabungan</div>
+        </div>
+
+        <div class="metric-card amber">
+            <div class="metric-label">Total Tabungan Impian</div>
+            <div class="metric-value" id="dispTotalGoalAccumulation">Rp0,00</div>
+            <div class="metric-sub">Dana Terkunci di Pos Impian</div>
+        </div>
+    </div>
+
+    <!-- RINCIAN SALDO PER MEDIA TABUNGAN -->
+    <div id="multiAccountStrip" class="accounts-strip-panel" style="display:none;">
+        <div class="accounts-strip-header">
+            <span class="accounts-strip-title">Distribusi Saldo per Media Tabungan</span>
+        </div>
+        <div class="accounts-cards-row" id="accountsCardsRow"></div>
+    </div>
+
+    <!-- TABLET & DESKTOP ONLY: VISUAL ANALYTICS & SMART SPENDING ALERT -->
+    <div class="analytics-desktop-container">
+        <div class="panel-header" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">
+            <div class="panel-title">Dashboard Analitik & Monitoring Pengeluaran</div>
+            <span style="font-size:0.75rem; color:var(--text-muted);">Pemantauan Real-Time (Tablet & Desktop)</span>
+        </div>
+
+        <div id="spendingAlertBanner" class="spending-alert-banner" style="display:none;"></div>
+
+        <div class="analytics-grid">
+            <div class="chart-box">
+                <div class="chart-title">Distribusi Pengeluaran Berdasarkan Kategori Pos</div>
+                <div class="canvas-wrapper">
+                    <canvas id="categoryChart" width="380" height="165"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Tren Pengeluaran Harian (7 Hari Terakhir vs Batas Harian)</div>
+                <div class="canvas-wrapper">
+                    <canvas id="trendChart" width="380" height="165"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL FILTER TOOLBAR -->
+    <div class="filter-card">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="timeFilterMode">Periode Laporan & Tampilan</label>
+                <select id="timeFilterMode">
+                    <option value="MONTHLY">Bulan Ini / Per-Bulan</option>
+                    <option value="WEEKLY">Minggu Ini / Per-Minggu</option>
+                    <option value="RANGE">Rentang Tanggal Tertentu</option>
+                    <option value="ALL">Semua Riwayat Dari Awal</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="ctrlMonthGroup">
+                <label for="filterMonthVal">Pilih Bulan</label>
+                <input type="month" id="filterMonthVal">
+            </div>
+
+            <div class="filter-group" id="ctrlWeekGroup" style="display: none;">
+                <label for="filterWeekVal">Pilih Minggu</label>
+                <input type="week" id="filterWeekVal">
+            </div>
+
+            <div class="filter-group" id="ctrlRangeStartGroup" style="display: none;">
+                <label for="filterStartDate">Dari Tanggal</label>
+                <input type="date" id="filterStartDate">
+            </div>
+
+            <div class="filter-group" id="ctrlRangeEndGroup" style="display: none;">
+                <label for="filterEndDate">Sampai Tanggal</label>
+                <input type="date" id="filterEndDate">
+            </div>
+        </div>
+    </div>
+
+    <!-- TABS NAVIGATION -->
+    <div class="tabs-header" id="mainTabsHeader">
+        <button type="button" class="tab-btn active" data-tab="tab-daily">Mutasi & Input</button>
+        <button type="button" class="tab-btn" data-tab="tab-recap">Rekap Evaluasi Kas</button>
+        <button type="button" class="tab-btn" data-tab="tab-goals">Tabungan Impian</button>
+        <button type="button" class="tab-btn" data-tab="tab-timeline">Proyeksi 12 Bulan</button>
+    </div>
+
+    <!-- TAB 0: DAILY INPUT SYSTEM -->
+    <div id="tab-daily" class="tab-content active">
+        <div class="grid-2col">
+            <!-- INPUT DAILY LOG FORM -->
+            <div class="panel no-print">
+                <div class="panel-header">
+                    <div class="panel-title">Catat Transaksi Baru</div>
+                </div>
+
+                <form id="dailyForm">
+                    <div class="form-group">
+                        <label for="dailyDate">Tanggal Transaksi</label>
+                        <input type="date" id="dailyDate" required>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="dailyType">Jenis Mutasi</label>
+                            <select id="dailyType">
+                                <option value="PENGELUARAN">Pengeluaran (Debet)</option>
+                                <option value="PEMASUKAN">Pemasukan (Kredit)</option>
+                                <option value="TABUNGAN_GOAL">Alokasi Tabungan Impian</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label id="lblDailyAccount" for="dailyAccountSource">Sumber / Tujuan Dana</label>
+                            <select id="dailyAccountSource" required></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="dailyCategoryGroup">
+                        <label for="dailyCategory">Kategori Pos</label>
+                        <select id="dailyCategory"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dailyTitle">Deskripsi Transaksi</label>
+                        <input type="text" id="dailyTitle" placeholder="Contoh: Belanja bulanan / Gaji" maxlength="80" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dailyAmount">Nominal (Rp)</label>
+                        <input type="text" inputmode="numeric" pattern="[0-9.]*" id="dailyAmount" class="money-input" placeholder="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dailyNotes">Keterangan Tambahan (Opsional)</label>
+                        <input type="text" id="dailyNotes" placeholder="Catatan singkat..." maxlength="120">
+                    </div>
+
+                    <button type="submit" class="btn-blue" style="width: 100%; justify-content: center; margin-top: 6px;">Simpan Mutasi</button>
+                </form>
+            </div>
+
+            <!-- DAILY LOGS TABLE -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Jurnal Mutasi Transaksi</div>
+                    <div class="no-print" style="display: flex; gap: 8px; align-items: center;">
+                        <select id="dailyFilterType" style="padding: 4px 8px; font-size: 0.78rem;">
+                            <option value="ALL">Semua Mutasi</option>
+                            <option value="PEMASUKAN">Pemasukan</option>
+                            <option value="PENGELUARAN">Pengeluaran</option>
+                            <option value="TABUNGAN_GOAL">Setoran Impian</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 65px;">Tanggal</th>
+                                <th>Deskripsi, Kategori & Media</th>
+                                <th class="text-right" style="width: 110px;">Nominal (Rp)</th>
+                                <th class="text-center no-print" style="width: 85px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyLogsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="tips-banner no-print">
+                    <strong>Catatan Sistem:</strong> Pengeluaran dapat diambil dari Saldo Bebas maupun dari saldo Tabungan Impian apabila terjadi kebutuhan darurat.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 1: REKAP KAS & EVALUASI -->
+    <div id="tab-recap" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Rekapitulasi Evaluasi Kas & Realisasi Pos</div>
+                <span id="recapPeriodTitle" style="font-size:0.82rem; color:var(--text-secondary); font-weight:bold;"></span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kategori Pos Kas</th>
+                            <th class="text-right">Total Realisasi (Rp)</th>
+                            <th class="text-right">Rata-rata / Hari</th>
+                            <th class="text-right">Porsi (%)</th>
+                            <th class="text-center">Status Evaluasi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recapTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: DYNAMIC GOALS -->
+    <div id="tab-goals" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Daftar Tabungan Impian</div>
+                <button type="button" class="no-print" id="btnTabAddGoal">+ Tambah Tabungan Impian</button>
+            </div>
+
+            <div class="goals-container" id="goalsCardsList"></div>
+        </div>
+    </div>
+
+    <!-- TAB 3: TIMELINE PROJECTION -->
+    <div id="tab-timeline" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Proyeksi Akumulasi Dana 12 Bulan</div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="text-center">Bulan</th>
+                            <th class="text-right">Est. Pemasukan / Bulan</th>
+                            <th class="text-right">Est. Pengeluaran</th>
+                            <th class="text-right">Estimasi Akumulasi Saldo</th>
+                            <th>Status Pencapaian Impian</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timelineTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PROFIL (EDIT PROFIL | PASSWORD & KEAMANAN | MEDIA TABUNGAN | BATAS, TEMA & EKSPOR) -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-card modal-card-lg">
+            <div class="modal-header">
+                <h3 id="profileModalTitle">Profil & Pengaturan Sistem</h3>
+                <button type="button" class="btn-secondary" id="btnCloseProfileModal" style="padding:4px 10px; min-height: auto; flex:none;">Tutup</button>
+            </div>
+
+            <!-- MODAL INTERNAL TABS -->
+            <div class="auth-tab-bar" style="margin-bottom: 14px; flex-wrap: wrap;">
+                <div class="auth-tab-item active" id="profTabProfile" data-prof-sec="PROFILE">Edit Profil</div>
+                <div class="auth-tab-item" id="profTabSecurity" data-prof-sec="SECURITY">Password & Keamanan</div>
+                <div class="auth-tab-item" id="profTabSavings" data-prof-sec="SAVINGS">Media Tabungan</div>
+                <div class="auth-tab-item" id="profTabPrefs" data-prof-sec="PREFS">Batas, Tema & Ekspor</div>
+            </div>
+
+            <!-- BAGIAN 1: EDIT PROFIL (FOTO, NAMA TAMPILAN & USERNAME) -->
+            <div id="profSectionProfile">
+                <div class="profile-avatar-card">
+                    <div class="profile-avatar-preview">
+                        <img id="modalAvatarImg" src="" alt="Foto Profil" style="display:none;">
+                        <svg id="modalAvatarDefault" viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </div>
+                    <div class="profile-avatar-info">
+                        <div style="font-size:0.84rem; font-weight:700; color:var(--text-primary);">Foto Profil Akun</div>
+                        <div style="font-size:0.72rem; color:var(--text-secondary); margin-bottom:6px;">Format valid: JPG, PNG, atau GIF (Maks. 2MB). Dilindungi inspeksi biner & batas dimensi.</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <label class="btn-blue btn-upload-label" for="avatarFileInput">Unggah Foto</label>
+                            <input type="file" id="avatarFileInput" accept=".jpg,.jpeg,.png,.gif,image/jpeg,image/png,image/gif" style="display:none;">
+                            <button type="button" class="btn-secondary" id="btnRemoveAvatar" style="padding:4px 10px; min-height:30px; font-size:0.74rem; display:none;">Hapus Foto</button>
+                        </div>
+                        <div id="avatarUploadMsg" style="font-size:0.72rem; margin-top:4px;"></div>
+                    </div>
+                </div>
+
+                <!-- JIKA BELUM LOGIN (MODE TAMU) -->
+                <div id="profileGuestNoticeBox" class="panel" style="padding: 12px; margin-bottom: 0;">
+                    <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">Anda Sedang Menggunakan Mode Tamu</div>
+                    <p style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 10px;">
+                        Silakan login atau buat akun baru untuk menyimpan progres ke cloud secara permanen dan mengatur identitas profil lintas perangkat.
+                    </p>
+                    <button type="button" id="btnProfileOpenLogin" class="btn-blue" style="width: 100%;">Login / Daftar Akun Sekarang</button>
+                </div>
+
+                <!-- JIKA SUDAH LOGIN: EDIT NAMA & USERNAME -->
+                <div id="profileIdentityEditBox" style="display: none;">
+                    <form id="formEditProfileIdentity" class="panel" style="padding: 12px; margin-bottom: 0;">
+                        <div style="font-size: 0.84rem; font-weight: 700; margin-bottom: 8px;">Identitas Profil Pengguna</div>
+                        <div class="form-group">
+                            <label for="editProfileNickname">Nama Tampilan / Nickname</label>
+                            <input type="text" id="editProfileNickname" placeholder="Masukkan nama tampilan..." maxlength="32" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editProfileUsername">Username Akun (ID Permanen)</label>
+                            <input type="text" id="editProfileUsername" readonly style="background: var(--surface-subtle); cursor: not-allowed; opacity: 0.8;">
+                        </div>
+                        <div id="profileEditMsg" style="font-size: 0.73rem; margin-bottom: 8px;"></div>
+                        <button type="submit" id="btnSaveProfileIdentity" class="btn-blue" style="width: 100%; min-height: 36px;">Simpan Perubahan Profil</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- BAGIAN 2: PASSWORD & KEAMANAN AKUN -->
+            <div id="profSectionSecurity" style="display: none;">
+                <div id="securityGuestBox" class="panel" style="padding: 12px; margin-bottom: 0;">
+                    <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">Keamanan Akun Belum Aktif</div>
+                    <p style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 10px;">
+                        Login terlebih dahulu untuk mengelola kata sandi, sinkronisasi terenkripsi, maupun penghapusan akun.
+                    </p>
+                    <button type="button" id="btnSecurityOpenLogin" class="btn-blue" style="width: 100%;">Buka Halaman Login</button>
+                </div>
+
+                <div id="securityLoggedInBox" style="display: none;">
+                    <div class="logged-in-badge-box">
+                        <div style="font-size: 0.88rem; font-weight:700; color: var(--text-primary);" id="loggedInUserText">Akun Aktif</div>
+                        <div style="font-size: 0.74rem; color: var(--text-secondary);">Terautentikasi via Firebase Auth & terlindungi UID Security Rules.</div>
+                    </div>
+
+                    <!-- UBAH PASSWORD DENGAN VERIFIKASI PASSWORD LAMA -->
+                    <div class="panel" style="padding: 12px; margin-bottom: 12px;">
+                        <div style="font-size: 0.82rem; font-weight: 700; margin-bottom: 8px;">Ubah Password Akun</div>
+                        <form id="formChangePassword">
+                            <div class="form-group">
+                                <label for="oldPasswordForChange">Password Sebelumnya (Verifikasi)</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="oldPasswordForChange" placeholder="Masukkan password sebelumnya..." autocomplete="current-password" required>
+                                    <button type="button" class="btn-toggle-eye" data-eye-target="oldPasswordForChange" aria-label="Tampilkan Password"></button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPasswordInput">Password Baru (Minimal 8 karakter, huruf & angka)</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="newPasswordInput" placeholder="Masukkan password baru..." autocomplete="new-password" required>
+                                    <button type="button" class="btn-toggle-eye" data-eye-target="newPasswordInput" aria-label="Tampilkan Password"></button>
+                                </div>
+                            </div>
+                            <button type="submit" id="btnSubmitChangePassword" class="btn-blue" style="width: 100%; min-height: 36px; font-size: 0.78rem;">Perbarui Password</button>
+                        </form>
+                    </div>
+
+                    <button type="button" id="btnAuthLogout" class="btn-outline" style="width: 100%; justify-content: center; background-color: var(--surface-subtle); color: var(--text-primary); border-color: var(--border); margin-bottom: 12px;">Keluar dari Akun (Logout)</button>
+
+                    <!-- ZONA PENGHAPUSAN AKUN -->
+                    <div class="danger-zone-box">
+                        <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent-rose); margin-bottom: 6px;">Zona Berbahaya (Hapus Akun Permanen)</div>
+                        <p style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 8px;">Masukkan password sebelumnya untuk mengonfirmasi penghapusan seluruh data dan akun secara permanen.</p>
+                        <div class="form-group">
+                            <div class="input-password-wrapper">
+                                <input type="password" id="oldPasswordForDelete" placeholder="Konfirmasi password sebelumnya..." autocomplete="current-password">
+                                <button type="button" class="btn-toggle-eye" data-eye-target="oldPasswordForDelete" aria-label="Tampilkan Password"></button>
+                            </div>
+                        </div>
+                        <button type="button" id="btnDeleteAccount" class="btn-rose" style="width: 100%; justify-content: center;">Hapus Akun Secara Permanen</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BAGIAN 3: SINGLE VS MULTI TABUNGAN MANAGEMENT -->
+            <div id="profSectionSavings" style="display:none;">
+                <div class="form-group">
+                    <label for="savingsModeSelect">Mode Pengelolaan Tabungan</label>
+                    <select id="savingsModeSelect">
+                        <option value="SINGLE">Single Tabungan (1 Kas Utama Terpusat)</option>
+                        <option value="MULTI">Multi Tabungan (Banyak Bank Digital / E-Wallet / Tunai)</option>
+                    </select>
+                </div>
+
+                <div class="tips-banner" style="margin-bottom: 12px; margin-top: 0;">
+                    <span id="savingsModeDesc">Mode Single Tabungan menggabungkan seluruh saldo Anda ke dalam satu kas utama.</span>
+                </div>
+
+                <div id="multiAccountManagerBox">
+                    <div style="font-size: 0.82rem; font-weight: 700; margin-bottom: 8px;" id="accountListTitle">Daftar Media Tabungan Aktif</div>
+                    <div id="accountsManageList" class="accounts-manage-list"></div>
+
+                    <div id="addAccountFormBox" class="panel" style="padding: 10px; margin-top: 10px; margin-bottom: 0;">
+                        <div style="font-size: 0.78rem; font-weight: 700; margin-bottom: 6px;">Tambah Media Tabungan Baru</div>
+                        <div class="form-grid">
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label for="newAccName">Nama Media (Contoh: PasifikBank / Danaku)</label>
+                                <input type="text" id="newAccName" placeholder="Nama Bank / E-Wallet" maxlength="30">
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label for="newAccType">Jenis Media</label>
+                                <select id="newAccType">
+                                    <option value="Bank Digital">Bank Digital</option>
+                                    <option value="Bank Konvensional">Bank Konvensional</option>
+                                    <option value="E-Wallet">E-Wallet / Dompet Digital</option>
+                                    <option value="Tunai">Uang Tunai / Brankas</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:8px;">
+                            <label for="newAccBalance">Saldo Awal (Rp)</label>
+                            <input type="text" inputmode="numeric" pattern="[0-9.]*" id="newAccBalance" class="money-input" placeholder="0">
+                        </div>
+                        <button type="button" id="btnAddSavingsAccount" class="btn-blue" style="width:100%; min-height:34px;">+ Tambahkan Media Tabungan</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BAGIAN 4: BATAS PENGELUARAN, TEMA TAMPILAN & EKSPOR LAPORAN -->
+            <div id="profSectionPrefs" style="display:none;">
+                <div class="theme-switch-container">
+                    <span style="font-size: 0.82rem; font-weight: 600;">Tema Tampilan:</span>
+                    <div class="theme-toggle-group">
+                        <button type="button" class="theme-btn active" id="btnThemeLight">Standar</button>
+                        <button type="button" class="theme-btn" id="btnThemeDark">Gelap</button>
+                        <button type="button" class="theme-btn" id="btnThemeRetro">Retro</button>
+                    </div>
+                </div>
+
+                <!-- EKSPOR LAPORAN PDF & EXCEL -->
+                <div class="panel" style="padding: 12px; margin-bottom: 12px;">
+                    <div style="font-size: 0.84rem; font-weight: 700; margin-bottom: 4px;">Ekspor Laporan Keuangan</div>
+                    <p style="font-size: 0.73rem; color: var(--text-secondary); margin-bottom: 10px;">Unduh atau cetak rekap mutasi sesuai filter periode yang sedang aktif di dasbor.</p>
+                    <div class="export-modal-actions">
+                        <button type="button" class="btn-rose" id="btnExportPDF">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                            </svg>
+                            <span>Laporan PDF</span>
+                        </button>
+                        <button type="button" class="btn-green" id="btnExportExcel">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="3" y1="9" x2="21" y2="9"></line>
+                                <line x1="9" y1="21" x2="9" y2="9"></line>
+                            </svg>
+                            <span>Laporan Excel (.xlsx)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel" style="padding: 12px; margin-bottom: 12px;">
+                    <div style="font-size: 0.84rem; font-weight: 700; margin-bottom: 4px;">Pengaturan Batas Pengeluaran (Monitoring Boros)</div>
+                    <p style="font-size: 0.73rem; color: var(--text-secondary); margin-bottom: 10px;">Atur batas maksimal pengeluaran harian dan bulanan Anda sendiri. Sistem akan menampilkan peringatan apabila pengeluaran mendekati atau melampaui batas.</p>
+
+                    <div class="form-group">
+                        <label for="inputDailyLimit">Batas Maksimal Pengeluaran Harian (Rp)</label>
+                        <input type="text" inputmode="numeric" pattern="[0-9.]*" id="inputDailyLimit" class="money-input" placeholder="Contoh: 100.000 (Isi 0 untuk nonaktif)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inputMonthlyLimit">Batas Maksimal Pengeluaran Bulanan (Rp)</label>
+                        <input type="text" inputmode="numeric" pattern="[0-9.]*" id="inputMonthlyLimit" class="money-input" placeholder="Contoh: 2.500.000 (Isi 0 untuk nonaktif)">
+                    </div>
+
+                    <button type="button" id="btnSaveSpendingLimits" class="btn-blue" style="width:100%; min-height:36px;">Simpan Batas Pengeluaran</button>
+                </div>
+
+                <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+                    <button type="button" id="btnResetAppData" class="btn-amber" style="width: 100%; justify-content: center;">Reset Seluruh Data Transaksi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOGIN & REGISTRASI (TERPISAH DARI PROFIL) -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Sinkronisasi Akun MoNa</h3>
+                <button type="button" class="btn-secondary" id="btnCloseAuthModal" style="padding:4px 10px; min-height: auto; flex:none;">Tutup</button>
+            </div>
+
+            <div class="auth-tab-bar">
+                <div class="auth-tab-item active" id="tabSwitchLogin" data-auth-mode="LOGIN">Masuk (Login)</div>
+                <div class="auth-tab-item" id="tabSwitchRegister" data-auth-mode="REGISTER">Registrasi Akun</div>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form id="formLoginMode">
+                <div class="form-group">
+                    <label for="loginNickname">Username</label>
+                    <input type="text" id="loginNickname" placeholder="Masukkan username akun..." autocomplete="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <div class="input-password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="Masukkan password..." autocomplete="current-password" required>
+                        <button type="button" class="btn-toggle-eye" data-eye-target="loginPassword" aria-label="Tampilkan Password"></button>
+                    </div>
+                </div>
+
+                <button type="submit" id="btnSubmitLogin" class="btn-blue" style="width:100%; margin-top:8px;">Masuk & Sinkronisasi Data</button>
+            </form>
+
+            <!-- REGISTER FORM -->
+            <form id="formRegisterMode" style="display: none;">
+                <div class="form-group">
+                    <label for="regUsername">Username Unik (Huruf & Angka, min. 4 karakter)</label>
+                    <input type="text" id="regUsername" placeholder="Contoh: shi2026" maxlength="24" autocomplete="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="regNickname">Nama Tampilan / Nickname</label>
+                    <input type="text" id="regNickname" placeholder="Contoh: Shi" maxlength="32" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="regPassword">Password (Minimal 8 karakter, kombinasi huruf & angka)</label>
+                    <div class="input-password-wrapper">
+                        <input type="password" id="regPassword" placeholder="Buat password..." autocomplete="new-password" required>
+                        <button type="button" class="btn-toggle-eye" data-eye-target="regPassword" aria-label="Tampilkan Password"></button>
+                    </div>
+                </div>
+
+                <button type="submit" id="btnSubmitRegister" class="btn-amber" style="width:100%; margin-top:8px;">Buat Akun Baru</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ADD / EDIT GOAL -->
+    <div class="modal-overlay" id="goalModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalGoalTitle">Tambah Tabungan Impian</h3>
+                <button type="button" id="btnCloseGoalModal" class="btn-secondary" style="padding:4px 10px; min-height: auto; flex:none;">Tutup</button>
+            </div>
+
+            <input type="hidden" id="modalGoalId">
+
+            <div class="form-group">
+                <label for="modalGoalName">Nama Barang / Target Impian</label>
+                <input type="text" id="modalGoalName" placeholder="Contoh: Smartphone Baru / Dana Darurat" maxlength="50">
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="modalGoalStoreIn">Simpan Di (Media Penyimpanan)</label>
+                    <select id="modalGoalStoreIn"></select>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalGoalSourceFrom">Sumber Tabungan (Asal Dana)</label>
+                    <select id="modalGoalSourceFrom"></select>
+                </div>
+            </div>
+
+            <div class="form-group" id="customGoalStoreGroup" style="display:none;">
+                <label for="modalGoalCustomStore">Nama Media Penyimpanan Khusus</label>
+                <input type="text" id="modalGoalCustomStore" placeholder="Contoh: Danaku / Celengan Brankas" maxlength="30">
+            </div>
+
+            <div class="form-group">
+                <label for="modalGoalTarget">Target Nominal Impian (Rp)</label>
+                <input type="text" inputmode="numeric" pattern="[0-9.]*" id="modalGoalTarget" class="money-input" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label for="modalGoalCurrent">Saldo Awal Terkumpul (Rp)</label>
+                <input type="text" inputmode="numeric" pattern="[0-9.]*" id="modalGoalCurrent" class="money-input" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label for="modalGoalMonthly">Rencana Setoran Rutin (Rp / bulan)</label>
+                <input type="text" inputmode="numeric" pattern="[0-9.]*" id="modalGoalMonthly" class="money-input" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label for="modalGoalCategory">Kategori Pos Impian</label>
+                <select id="modalGoalCategory">
+                    <option value="Gadget & Elektronik">Gadget & Elektronik</option>
+                    <option value="Dana Darurat & Keluarga">Dana Darurat & Keluarga</option>
+                    <option value="Pendidikan & Karir">Pendidikan & Karir</option>
+                    <option value="Properti & Kendaraan">Properti & Kendaraan</option>
+                    <option value="Target Lainnya">Target Lainnya</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" id="btnCancelGoalModal" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSaveGoalModal" class="btn-blue">Simpan Impian</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT DAILY LOG -->
+    <div class="modal-overlay" id="editLogModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Edit Mutasi Transaksi</h3>
+                <button type="button" id="btnCloseEditLogModal" class="btn-secondary" style="padding:4px 10px; min-height: auto; flex:none;">Tutup</button>
+            </div>
+
+            <input type="hidden" id="editLogId">
+
+            <div class="form-group">
+                <label for="editLogDate">Tanggal Transaksi</label>
+                <input type="date" id="editLogDate" required>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="editLogType">Jenis Mutasi</label>
+                    <select id="editLogType">
+                        <option value="PENGELUARAN">Pengeluaran (Debet)</option>
+                        <option value="PEMASUKAN">Pemasukan (Kredit)</option>
+                        <option value="TABUNGAN_GOAL">Alokasi Tabungan Impian</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="editLogAccountSource">Sumber / Tujuan Dana</label>
+                    <select id="editLogAccountSource"></select>
+                </div>
+            </div>
+
+            <div class="form-group" id="editCategoryGroup">
+                <label for="editLogCategory">Kategori Pos</label>
+                <select id="editLogCategory"></select>
+            </div>
+
+            <div class="form-group">
+                <label for="editLogTitle">Deskripsi Transaksi</label>
+                <input type="text" id="editLogTitle" placeholder="Deskripsi..." maxlength="80" required>
+            </div>
+
+            <div class="form-group">
+                <label for="editLogAmount">Nominal (Rp)</label>
+                <input type="text" inputmode="numeric" pattern="[0-9.]*" id="editLogAmount" class="money-input" placeholder="0" required>
+            </div>
+
+            <div class="form-group">
+                <label for="editLogNotes">Keterangan Tambahan</label>
+                <input type="text" id="editLogNotes" placeholder="Catatan opsional..." maxlength="120">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" id="btnCancelEditLogModal" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSaveEditLogModal" class="btn-blue">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL VERIFIKASI KONFIRMASI PENGHAPUSAN -->
+    <div class="modal-overlay" id="confirmActionModal">
+        <div class="modal-card" style="max-width: 390px;">
+            <div class="modal-header">
+                <h3 id="confirmModalTitle">Konfirmasi Verifikasi</h3>
+            </div>
+            <p id="confirmModalMessage" style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+                Apakah Anda yakin ingin melanjutkan tindakan ini?
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" id="btnConfirmModalNo" class="btn-secondary">Batal</button>
+                <button type="button" id="btnConfirmModalYes" class="btn-rose">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modular Scripts: Security -> Animation -> Core App -->
+    <script src="asset/script/security.js"></script>
+    <script src="asset/script/animation.js"></script>
+    <script src="asset/script/app.js"></script>
+</body>
+</html>
