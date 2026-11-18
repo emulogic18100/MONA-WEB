@@ -873,6 +873,14 @@ body.retro-mode .goal-card {
     font-size: 0.75rem;
 }
 
+.goal-actions button.btn-goal-trash {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
+}
+
 /* MODALS */
 .modal-overlay {
     display: none;
