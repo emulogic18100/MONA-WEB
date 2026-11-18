@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>MoNa Financial — Manajemen Keuangan Pribadi & Tabungan Impian</title>
+    <title>MoNa Financial — Kelola alur Keuanganmu dengan mudah dengan Mona :D</title>
     <link rel="stylesheet" href="asset/style/company.css">
 </head>
 <body>
@@ -18,48 +18,58 @@
                     <img src="asset/image/mona-icon.png" alt="Logo MoNa Financial" class="cp-logo-img">
                 </div>
                 <div>
-                    <div class="cp-brand-title">MoNa Financial</div>
-                    <div class="cp-brand-sub">Personal Wealth & Ledger System</div>
+                    <div class="cp-brand-title-row">
+                        <span class="cp-brand-title">MoNa Financial</span>
+                        <span class="cp-version-badge">mona-v0.0.5</span>
+                    </div>
+                    <div class="cp-brand-sub">Kelola alur Keuanganmu dengan mudah dengan Mona :D</div>
                 </div>
             </div>
 
-            <nav class="cp-nav-actions">
+            <nav class="cp-nav-links" aria-label="Navigasi Halaman">
+                <a href="#tentang">Tentang</a>
+                <a href="#fitur">Fitur Utama</a>
+                <a href="#cara-kerja">Cara Kerja</a>
+                <a href="#arsitektur">Arsitektur</a>
+            </nav>
+
+            <div class="cp-nav-actions">
                 <div class="cp-theme-switcher" aria-label="Pilih Tema Tampilan">
                     <button type="button" class="cp-theme-btn active" data-cp-theme="light">Standar</button>
                     <button type="button" class="cp-theme-btn" data-cp-theme="dark">Gelap</button>
                     <button type="button" class="cp-theme-btn" data-cp-theme="retro">Retro</button>
                 </div>
-            </nav>
+            </div>
         </div>
     </header>
 
-    <!-- HERO SECTION -->
+    <!-- 1. HERO SECTION -->
     <section class="cp-hero">
         <div class="cp-container cp-hero-grid">
             <div class="cp-hero-copy">
-                <span class="cp-pill">Versi Web & Mobile • Gratis & Dilindungi HTTPS/TLS</span>
-                <h1>Kelola Arus Kas, Multi-Tabungan, dan Target Impian dalam Satu Dasbor Presisi.</h1>
+                <span class="cp-pill">Personal Finance Management Web Application</span>
+                <h1>MoNa Financial — Personal Wealth & Ledger System</h1>
                 <p>
-                    <strong>MoNa (Money Navigation)</strong> adalah aplikasi web manajemen keuangan pribadi yang dirancang untuk mencatat mutasi harian secara instan, memantau batas pengeluaran agar tidak boros, memisahkan saldo di berbagai bank/e-wallet, dan mewujudkan target tabungan impian secara terukur.
+                    <strong>MoNa (Money Navigation)</strong> adalah aplikasi manajemen keuangan pribadi berbasis web untuk mencatat pemasukan dan pengeluaran secara manual, mengelola berbagai media penyimpanan uang, mengatur target tabungan, serta mengevaluasi kondisi kas melalui satu dasbor terpadu.
                 </p>
                 <div class="cp-hero-cta">
                     <a href="mona_application.html" class="cp-btn-primary cp-btn-lg">Mulai Gunakan Aplikasi</a>
-                    <a href="#fitur" class="cp-btn-outline cp-btn-lg">Pelajari Fitur & Tampilan</a>
+                    <a href="#fitur" class="cp-btn-outline cp-btn-lg">Lihat Dokumentasi Fitur</a>
                 </div>
                 <div class="cp-hero-notes">
-                    <span>✓ Langsung pakai tanpa wajib login</span>
-                    <span>✓ Sinkronisasi cloud lintas perangkat</span>
-                    <span>✓ Ekspor PDF & Excel berwarna</span>
+                    <span>✓ Mode Tamu lokal tanpa wajib membuat akun</span>
+                    <span>✓ Mode Akun dengan sinkronisasi Cloud Firestore</span>
+                    <span>✓ Perhitungan saldo otomatis berbasis riwayat mutasi</span>
                 </div>
             </div>
 
-            <!-- MOCKUP PREVIEW TAMPILAN APLIKASI -->
+            <!-- PREVIEW DASHBOARD APLIKASI -->
             <div class="cp-mockup-card">
                 <div class="cp-mockup-topbar">
                     <span class="cp-dot red"></span>
                     <span class="cp-dot yellow"></span>
                     <span class="cp-dot green"></span>
-                    <span class="cp-mockup-url">mona_application.html — Dasbor Utama</span>
+                    <span class="cp-mockup-url">MoNa Application — Dashboard Keuangan</span>
                 </div>
                 <div class="cp-mockup-body">
                     <div class="cp-mock-metrics">
@@ -72,7 +82,7 @@
                             <strong>Rp3.150.000</strong>
                         </div>
                         <div class="cp-mock-box purple">
-                            <small>SALDO BEBAS</small>
+                            <small>TOTAL SALDO TERSISA</small>
                             <strong>Rp5.350.000</strong>
                         </div>
                         <div class="cp-mock-box amber">
@@ -83,32 +93,32 @@
 
                     <div class="cp-mock-panel">
                         <div class="cp-mock-panel-head">
-                            <span>Progres Tabungan Impian</span>
+                            <span>Tabungan Impian & Dana Darurat</span>
                             <span class="cp-mock-badge">70% Tercapai</span>
                         </div>
                         <div class="cp-mock-bar">
                             <div class="cp-mock-bar-fill"></div>
                         </div>
                         <div class="cp-mock-meta">
-                            <span>Simpan di: Bank Digital</span>
+                            <span>Media: Bank Digital</span>
                             <span>Rencana: Rp600.000/bln</span>
                         </div>
                     </div>
 
                     <div class="cp-mock-table">
                         <div class="cp-mock-row">
-                            <span class="cp-tag green">Pemasukan</span>
-                            <span>Gaji Bulanan</span>
+                            <span class="cp-tag green">Kredit</span>
+                            <span>Gaji & Pendapatan Utama</span>
                             <strong class="txt-green">+Rp8.500.000</strong>
                         </div>
                         <div class="cp-mock-row">
-                            <span class="cp-tag purple">Impian</span>
-                            <span>Setoran Dana Darurat</span>
+                            <span class="cp-tag purple">Alokasi</span>
+                            <span>Setoran Tabungan Impian</span>
                             <strong class="txt-purple">-Rp1.000.000</strong>
                         </div>
                         <div class="cp-mock-row">
-                            <span class="cp-tag red">Konsumsi</span>
-                            <span>Belanja Kebutuhan Dapur</span>
+                            <span class="cp-tag red">Debet</span>
+                            <span>Makan & Dapur</span>
                             <strong class="txt-red">-Rp250.000</strong>
                         </div>
                     </div>
@@ -117,44 +127,229 @@
         </div>
     </section>
 
-    <!-- FUNGSI & KEUNGGULAN UTAMA -->
+    <!-- 2. ABOUT MONA -->
+    <section id="tentang" class="cp-section cp-section-alt">
+        <div class="cp-container">
+            <div class="cp-section-header">
+                <h2>Tentang MoNa Financial</h2>
+                <p>Pendekatan pencatatan arus kas berbasis transaksi manual dengan perhitungan saldo otomatis.</p>
+            </div>
+
+            <div class="cp-about-grid">
+                <div class="cp-feature-card">
+                    <h3>Tujuan Aplikasi</h3>
+                    <p>Membantu pengguna memantau pemasukan, pengeluaran, distribusi saldo lintas media tabungan, serta progres target tabungan pribadi dalam satu antarmuka web yang terstruktur.</p>
+                </div>
+                <div class="cp-feature-card">
+                    <h3>Permasalahan yang Diselesaikan</h3>
+                    <p>Mengatasi pencatatan keuangan yang tersebar di banyak dompet/rekening, kurangnya kontrol terhadap batas pengeluaran harian maupun bulanan, serta kesulitan memisahkan dana bebas dari dana target impian.</p>
+                </div>
+                <div class="cp-feature-card">
+                    <h3>Pendekatan Pengelolaan</h3>
+                    <p>Seluruh transaksi dan saldo dimasukkan serta dikelola secara manual oleh pengguna, lalu sistem menghitung saldo tersisa, persentase target, rekap evaluasi pos, dan simulasi akumulasi 12 bulan secara otomatis.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. CORE FEATURES (12 FITUR UTAMA SESUAI SPESIFIKASI) -->
     <section id="fitur" class="cp-section">
         <div class="cp-container">
             <div class="cp-section-header">
-                <h2>Fungsi & Kegunaan Utama MoNa</h2>
-                <p>Dirancang ringan, cepat di browser ponsel maupun desktop, serta mendukung tema tampilan Standar, Gelap, dan Retro.</p>
+                <h2>Fitur Utama Aplikasi</h2>
+                <p>Seluruh modul fungsional yang tersedia pada aplikasi MoNa Financial.</p>
             </div>
 
             <div class="cp-features-grid">
                 <article class="cp-feature-card">
-                    <h3>1. Pencatatan Mutasi Harian Cepat</h3>
-                    <p>Catat pemasukan, pengeluaran, maupun alokasi tabungan impian lengkap dengan kategori pos, sumber dana, filter bulanan, mingguan, hingga rentang tanggal khusus.</p>
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    </div>
+                    <h3>A. Dashboard Keuangan</h3>
+                    <p>Menampilkan ringkasan total pemasukan, total pengeluaran, saldo bebas tersisa, total akumulasi tabungan impian, distribusi saldo per media, serta status autentikasi dan sinkronisasi akun.</p>
                 </article>
 
                 <article class="cp-feature-card">
-                    <h3>2. Single & Multi Media Tabungan</h3>
-                    <p>Kelola satu kas utama terpusat atau pisahkan saldo ke berbagai bank digital, bank konvensional, e-wallet, dan uang tunai secara mandiri.</p>
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </div>
+                    <h3>B. Sistem Pencatatan Mutasi Harian</h3>
+                    <p>Mencatat mutasi Pemasukan (Kredit), Pengeluaran (Debet), dan Alokasi Tabungan Impian lengkap dengan tanggal, sumber/tujuan dana, kategori pos, deskripsi, nominal, catatan, edit, hapus, serta filter jenis mutasi.</p>
                 </article>
 
                 <article class="cp-feature-card">
-                    <h3>3. Tabungan Impian & Dana Darurat</h3>
-                    <p>Tetapkan target barang atau dana darurat, pantau persentase progres, dan tarik dana darurat sewaktu-waktu apabila diperlukan.</p>
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                    </div>
+                    <h3>C. Single & Multi Media Tabungan</h3>
+                    <p>Mendukung <em>Single Savings Mode</em> (satu kas utama terpusat) maupun <em>Multi Savings Mode</em> untuk memisahkan Bank Digital, Bank Konvensional, E-Wallet / Dompet Digital, dan Uang Tunai / Brankas secara manual.</p>
                 </article>
 
                 <article class="cp-feature-card">
-                    <h3>4. Kontrol Batas Pengeluaran & Grafik</h3>
-                    <p>Pasang batas maksimal pengeluaran harian dan bulanan untuk mencegah pemborosan, dilengkapi grafik distribusi pos dan tren 7 hari terakhir.</p>
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    </div>
+                    <h3>D. Tabungan Impian & Dana Darurat</h3>
+                    <p>Kelola banyak target (Gadget & Elektronik, Dana Darurat & Keluarga, Pendidikan & Karir, Properti & Kendaraan, Target Lainnya) lengkap dengan rencana setoran bulanan, progres persentase, dan penarikan dana melalui transaksi pengeluaran.</p>
                 </article>
 
                 <article class="cp-feature-card">
-                    <h3>5. Ekspor Laporan PDF & Excel</h3>
-                    <p>Cetak laporan mutasi periode aktif ke format PDF siap cetak atau file Excel (<code>.xlsx</code>) dengan pewarnaan otomatis pada setiap jenis transaksi.</p>
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </div>
+                    <h3>E. Kontrol Batas Pengeluaran</h3>
+                    <p>Tetapkan batas maksimal pengeluaran harian dan bulanan secara mandiri. Sistem memantau akumulasi realisasi dan memicu indikator peringatan mulai dari ambang 85% hingga saat melewati batas.</p>
                 </article>
 
                 <article class="cp-feature-card">
-                    <h3>6. Mode Tamu & Isolasi Data UID</h3>
-                    <p>Gunakan langsung secara lokal tanpa login, atau masuk menggunakan akun untuk sinkronisasi real-time yang dilindungi Firebase Auth dan UID Security Rules.</p>
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    </div>
+                    <h3>F. Dashboard Analitik</h3>
+                    <p>Visualisasi grafik distribusi pengeluaran berdasarkan kategori pos serta grafik tren pengeluaran 7 hari terakhir dengan garis pembanding batas harian (ditampilkan pada lebar layar minimal 768 piksel).</p>
                 </article>
+
+                <article class="cp-feature-card">
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    </div>
+                    <h3>G. Rekapitulasi & Evaluasi Kas</h3>
+                    <p>Tabel evaluasi per kategori pengeluaran yang menghitung total realisasi, rata-rata pengeluaran per hari aktif, persentase distribusi porsi pengeluaran, serta status evaluasi kategori.</p>
+                </article>
+
+                <article class="cp-feature-card">
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                    </div>
+                    <h3>H. Proyeksi Akumulasi Dana 12 Bulan</h3>
+                    <p>Simulasi estimasi pemasukan bulanan, pengeluaran bulanan, akumulasi saldo, dan status pencapaian target selama 12 bulan ke depan berdasarkan data historis (bersifat estimasi/simulasi, bukan hasil yang dijamin).</p>
+                </article>
+
+                <article class="cp-feature-card">
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </div>
+                    <h3>I. Filter Periode Transaksi</h3>
+                    <p>Saring tampilan dasbor, rekapitulasi evaluasi kas, dan ekspor laporan berdasarkan bulan tertentu, minggu tertentu, rentang tanggal khusus, maupun seluruh riwayat transaksi.</p>
+                </article>
+
+                <article class="cp-feature-card">
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                    <h3>J. Ekspor Laporan PDF & Excel</h3>
+                    <p>Cetak laporan PDF dengan header identitas, periode, dan tanggal cetak melalui Browser Print API, atau unduh file Excel (<code>.xlsx</code>) menggunakan <code>xlsx-js-style</code> dengan pewarnaan jenis mutasi dan ringkasan total.</p>
+                </article>
+
+                <article class="cp-feature-card">
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <h3>K. Sistem Profil Pengguna</h3>
+                    <p>Pengaturan nama tampilan, informasi username akun, unggah maupun hapus foto profil (JPG, PNG, GIF), serta pengelolaan preferensi tema antarmuka.</p>
+                </article>
+
+                <article class="cp-feature-card">
+                    <div class="cp-feature-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+                    </div>
+                    <h3>L. Autentikasi & Sinkronisasi Cloud</h3>
+                    <p>Dukungan Mode Tamu lokal dan Mode Akun (registrasi/login username & password, ubah password dengan verifikasi password lama, hapus akun permanen, serta penyimpanan per UID di Cloud Firestore).</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. HOW IT WORKS -->
+    <section id="cara-kerja" class="cp-section cp-section-alt">
+        <div class="cp-container">
+            <div class="cp-section-header">
+                <h2>Alur Kerja Pengelolaan Keuangan</h2>
+                <p>Lima langkah terstruktur dalam mengelola arus kas pribadi di MoNa Financial.</p>
+            </div>
+
+            <div class="cp-steps-grid">
+                <div class="cp-step-card">
+                    <span class="cp-step-num">01</span>
+                    <h3>Atur Media Tabungan</h3>
+                    <p>Pilih mode Single Tabungan atau tambahkan beberapa rekening bank, e-wallet, dan uang tunai beserta saldo awalnya.</p>
+                </div>
+                <div class="cp-step-card">
+                    <span class="cp-step-num">02</span>
+                    <h3>Tetapkan Target & Batas</h3>
+                    <p>Buat pos Tabungan Impian atau Dana Darurat dan tentukan batas pengeluaran harian maupun bulanan Anda.</p>
+                </div>
+                <div class="cp-step-card">
+                    <span class="cp-step-num">03</span>
+                    <h3>Catat Mutasi Harian</h3>
+                    <p>Input setiap pemasukan, pengeluaran, dan alokasi setoran impian secara manual sesuai tanggal dan sumber dana.</p>
+                </div>
+                <div class="cp-step-card">
+                    <span class="cp-step-num">04</span>
+                    <h3>Pantau Evaluasi & Proyeksi</h3>
+                    <p>Tinjau distribusi saldo, peringatan batas pengeluaran, rekap kategori pos, grafik analitik, dan estimasi 12 bulan.</p>
+                </div>
+                <div class="cp-step-card">
+                    <span class="cp-step-num">05</span>
+                    <h3>Ekspor Laporan</h3>
+                    <p>Simpan rekap mutasi periode aktif ke format dokumen PDF atau spreadsheet Excel (<code>.xlsx</code>) kapan saja.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. TECHNOLOGY & ARCHITECTURE + PLATFORM & ACCESSIBILITY -->
+    <section id="arsitektur" class="cp-section">
+        <div class="cp-container">
+            <div class="cp-section-header">
+                <h2>Teknologi, Arsitektur & Aksesibilitas</h2>
+                <p>Transparansi komponen teknis, model penyimpanan data, dan dukungan tampilan lintas perangkat.</p>
+            </div>
+
+            <div class="cp-arch-grid">
+                <div class="cp-feature-card">
+                    <h3>Stack Teknologi Aplikasi</h3>
+                    <ul class="cp-clean-list">
+                        <li><strong>HTML5 & CSS3:</strong> Struktur semantik, layout responsif, dan sistem variabel tema.</li>
+                        <li><strong>JavaScript Vanilla:</strong> Logika perhitungan saldo, validasi input, sanitasi objek, dan interaksi antarmuka.</li>
+                        <li><strong>Canvas API:</strong> Render grafik distribusi kategori pengeluaran dan tren 7 hari terakhir.</li>
+                        <li><strong>xlsx-js-style & Browser Print API:</strong> Ekspor laporan Excel berformat serta pencetakan PDF.</li>
+                    </ul>
+                </div>
+
+                <div class="cp-feature-card">
+                    <h3>Perbedaan Penyimpanan Lokal vs Cloud</h3>
+                    <ul class="cp-clean-list">
+                        <li><strong>Mode Tamu (Lokal):</strong> Menggunakan <code>localStorage</code> browser. Tidak memerlukan akun dan tidak melakukan sinkronisasi cloud; data hanya tersimpan pada browser dan perangkat yang digunakan.</li>
+                        <li><strong>Mode Akun (Cloud):</strong> Menggunakan Firebase Authentication dan Cloud Firestore berbasis UID pengguna untuk sinkronisasi lintas perangkat setelah login. Keamanan akses bergantung pada konfigurasi Firebase Authentication dan Firestore Security Rules yang diterapkan.</li>
+                    </ul>
+                </div>
+
+                <div class="cp-feature-card">
+                    <h3>Platform & Pilihan Tema Tampilan</h3>
+                    <p style="margin-bottom: 10px;">MoNa adalah aplikasi web (bukan aplikasi mobile native Android/iOS) yang dapat diakses melalui browser desktop, tablet, dan smartphone dengan tiga pilihan tema:</p>
+                    <div class="cp-theme-pills">
+                        <span class="cp-badge-pill">1. Standar (Light Mode)</span>
+                        <span class="cp-badge-pill">2. Gelap (Dark Mode)</span>
+                        <span class="cp-badge-pill">3. Retro (Retro Mode)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BATASAN PRODUK -->
+            <div class="cp-disclaimer-box">
+                <strong>Batasan & Ruang Lingkup Produk:</strong> MoNa Financial merupakan alat pencatatan keuangan pribadi manual. Aplikasi ini <strong>bukan</strong> layanan perbankan, platform investasi, dompet digital pembayaran, maupun layanan penasihat keuangan profesional, serta tidak terhubung atau menarik data mutasi secara otomatis dari rekening bank maupun e-wallet.
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. CALL TO ACTION -->
+    <section class="cp-cta-section">
+        <div class="cp-container">
+            <div class="cp-cta-card">
+                <h2>Siap Mulai Mencatat Arus Kas Anda?</h2>
+                <p>Gunakan MoNa Financial langsung di browser melalui Mode Tamu lokal atau masuk dengan akun untuk sinkronisasi Cloud Firestore.</p>
+                <a href="mona_application.html" class="cp-btn-primary cp-btn-lg">Buka Aplikasi MoNa Sekarang</a>
             </div>
         </div>
     </section>
@@ -163,9 +358,10 @@
     <footer class="cp-footer">
         <div class="cp-container cp-footer-inner">
             <div class="cp-footer-copy">
-                <strong>MoNa Financial Manager</strong>
-                <p>Kendalikan setiap rupiah dengan pencatatan yang rapi, aman, dan terencana.</p>
+                <strong>MoNa Financial</strong>
+                <p>Aplikasi Manajemen Keuangan Pribadi Berbasis Web :D © 2026 MoNa Financial</p>
             </div>
+            <div class="cp-footer-wm">create by emulogic</div>
         </div>
     </footer>
 
