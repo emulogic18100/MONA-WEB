@@ -24,7 +24,7 @@
         <div class="print-header-top">
             <div>
                 <div class="print-brand">MoNa Financial Statement</div>
-                <div class="print-tagline">Laporan Ringkasan Eksekutif & Mutasi Rekening</div>
+                <div class="print-tagline">Laporan Sisa Saldo Media Tabungan & Riwayat Mutasi</div>
             </div>
             <div class="print-meta-box">
                 <div>Pemilik Akun: <strong id="pdfPrintOwner">Pengguna Lokal</strong></div>
@@ -34,8 +34,30 @@
         </div>
     </div>
 
+    <!-- PDF ONLY: RINGKASAN SISA SALDO SELURUH MEDIA (BANK, DIGITAL BANK, E-WALLET, CASH) -->
+    <section class="print-only-balances" aria-label="Ringkasan Sisa Saldo Rekening">
+        <div class="print-section-title">1. Posisi Sisa Saldo Media Tabungan</div>
+        <table class="print-balance-table">
+            <thead>
+                <tr>
+                    <th style="width: 35px;">No</th>
+                    <th>Nama Media / Rekening</th>
+                    <th>Kategori Media</th>
+                    <th class="text-right">Sisa Saldo (Rp)</th>
+                </tr>
+            </thead>
+            <tbody id="pdfPrintBalanceBody"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="text-right font-bold">TOTAL KESELURUHAN SISA SALDO</td>
+                    <td class="text-right font-bold" id="pdfPrintTotalBalance">Rp0,00</td>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+
     <!-- FIXED TOP NAVBAR -->
-    <header class="sticky-navbar">
+    <header class="sticky-navbar no-print">
         <div class="navbar-inner">
             <div class="header-brand-wrap">
                 <div class="header-avatar-box" id="headerAvatarBox" title="Buka Profil & Pengaturan">
@@ -60,7 +82,7 @@
         </div>
     </header>
 
-    <!-- NOTIFIKASI MODE TAMU (DAPAT DITUTUP DENGAN IKON VEKTOR X) -->
+    <!-- NOTIFIKASI MODE TAMU -->
     <div id="localGuestSyncNotice" class="guest-sync-notice no-print">
         <div class="guest-notice-text">
             <strong>Mode Tamu Lokal:</strong> Anda dapat langsung menggunakan seluruh fitur MoNa sekarang, namun progres hanya tersimpan sementara di browser perangkat ini dan belum tersinkronisasi lintas perangkat.
@@ -76,8 +98,8 @@
         </div>
     </div>
 
-    <!-- METRICS DASHBOARD -->
-    <div class="metrics-grid">
+    <!-- METRICS DASHBOARD (HIDDEN ON PDF PRINT) -->
+    <div class="metrics-grid no-print">
         <div class="metric-card">
             <div class="metric-label">Total Pemasukan</div>
             <div class="metric-value" id="dispIncome">Rp0,00</div>
@@ -103,8 +125,8 @@
         </div>
     </div>
 
-    <!-- RINCIAN SALDO PER MEDIA TABUNGAN -->
-    <div id="multiAccountStrip" class="accounts-strip-panel" style="display:none;">
+    <!-- RINCIAN SALDO PER MEDIA TABUNGAN (SCREEN VIEW) -->
+    <div id="multiAccountStrip" class="accounts-strip-panel no-print" style="display:none;">
         <div class="accounts-strip-header">
             <span class="accounts-strip-title">Distribusi Saldo per Media Tabungan</span>
         </div>
@@ -112,7 +134,7 @@
     </div>
 
     <!-- TABLET & DESKTOP ONLY: VISUAL ANALYTICS & SMART SPENDING ALERT -->
-    <div class="analytics-desktop-container">
+    <div class="analytics-desktop-container no-print">
         <div class="panel-header" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">
             <div class="panel-title">Dashboard Analitik & Monitoring Pengeluaran</div>
             <span style="font-size:0.75rem; color:var(--text-muted);">Pemantauan Real-Time (Tablet & Desktop)</span>
@@ -137,7 +159,7 @@
     </div>
 
     <!-- GLOBAL FILTER TOOLBAR -->
-    <div class="filter-card">
+    <div class="filter-card no-print">
         <div class="filter-row">
             <div class="filter-group">
                 <label for="timeFilterMode">Periode Laporan & Tampilan</label>
@@ -172,15 +194,15 @@
     </div>
 
     <!-- TABS NAVIGATION -->
-    <div class="tabs-header" id="mainTabsHeader">
+    <div class="tabs-header no-print" id="mainTabsHeader">
         <button type="button" class="tab-btn active" data-tab="tab-daily">Mutasi & Input</button>
         <button type="button" class="tab-btn" data-tab="tab-recap">Rekap Evaluasi Kas</button>
         <button type="button" class="tab-btn" data-tab="tab-goals">Tabungan Impian</button>
         <button type="button" class="tab-btn" data-tab="tab-timeline">Proyeksi 12 Bulan</button>
     </div>
 
-    <!-- TAB 0: DAILY INPUT SYSTEM -->
-    <div id="tab-daily" class="tab-content active">
+    <!-- TAB 0: DAILY INPUT SYSTEM (ONLY MUTATION TABLE SHOWN ON PDF) -->
+    <div id="tab-daily" class="tab-content active print-include-section">
         <div class="grid-2col">
             <!-- INPUT DAILY LOG FORM -->
             <div class="panel no-print">
@@ -235,9 +257,12 @@
             </div>
 
             <!-- DAILY LOGS TABLE -->
-            <div class="panel">
+            <div class="panel print-mutation-panel">
                 <div class="panel-header">
-                    <div class="panel-title">Jurnal Mutasi Transaksi</div>
+                    <div class="panel-title">
+                        <span class="screen-only-text">Jurnal Mutasi Transaksi</span>
+                        <span class="print-only-text">2. Riwayat Mutasi Transaksi</span>
+                    </div>
                     <div class="no-print" style="display: flex; gap: 8px; align-items: center;">
                         <select id="dailyFilterType" style="padding: 4px 8px; font-size: 0.78rem;">
                             <option value="ALL">Semua Mutasi</option>
@@ -252,14 +277,30 @@
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 65px;">Tanggal</th>
+                                <th style="width: 75px;">Tanggal</th>
                                 <th>Deskripsi, Kategori & Media</th>
-                                <th class="text-right" style="width: 110px;">Nominal (Rp)</th>
+                                <th class="text-right" style="width: 125px;">Nominal (Rp)</th>
                                 <th class="text-center no-print" style="width: 85px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="dailyLogsTableBody"></tbody>
                     </table>
+                </div>
+
+                <!-- PDF ONLY: RINGKASAN TOTAL MUTASI PERIODE TERPILIH -->
+                <div class="print-only-mutation-summary">
+                    <div class="print-summary-item">
+                        <span>Total Pemasukan Periode Ini:</span>
+                        <strong id="pdfPrintPeriodIncome" style="color: #166534;">Rp0,00</strong>
+                    </div>
+                    <div class="print-summary-item">
+                        <span>Total Pengeluaran Periode Ini:</span>
+                        <strong id="pdfPrintPeriodExpense" style="color: #991b1b;">Rp0,00</strong>
+                    </div>
+                    <div class="print-summary-item">
+                        <span>Total Alokasi Impian Periode Ini:</span>
+                        <strong id="pdfPrintPeriodGoal" style="color: #6b21a8;">Rp0,00</strong>
+                    </div>
                 </div>
 
                 <div class="tips-banner no-print">
@@ -269,8 +310,8 @@
         </div>
     </div>
 
-    <!-- TAB 1: REKAP KAS & EVALUASI -->
-    <div id="tab-recap" class="tab-content">
+    <!-- TAB 1: REKAP KAS & EVALUASI (HIDDEN ON PDF PRINT) -->
+    <div id="tab-recap" class="tab-content no-print">
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">Rekapitulasi Evaluasi Kas & Realisasi Pos</div>
@@ -294,8 +335,8 @@
         </div>
     </div>
 
-    <!-- TAB 2: DYNAMIC GOALS -->
-    <div id="tab-goals" class="tab-content">
+    <!-- TAB 2: DYNAMIC GOALS (HIDDEN ON PDF PRINT) -->
+    <div id="tab-goals" class="tab-content no-print">
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">Daftar Tabungan Impian</div>
@@ -306,8 +347,8 @@
         </div>
     </div>
 
-    <!-- TAB 3: TIMELINE PROJECTION -->
-    <div id="tab-timeline" class="tab-content">
+    <!-- TAB 3: TIMELINE PROJECTION (HIDDEN ON PDF PRINT) -->
+    <div id="tab-timeline" class="tab-content no-print">
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">Proyeksi Akumulasi Dana 12 Bulan</div>
@@ -330,7 +371,8 @@
         </div>
     </div>
 
-    <!-- MODAL PROFIL (EDIT PROFIL | PASSWORD & KEAMANAN | MEDIA TABUNGAN | BATAS, TEMA & EKSPOR) -->
+    <!-- MODALS (ALL HAVE .modal-overlay WHICH IS HIDDEN ON PRINT) -->
+    <!-- MODAL PROFIL -->
     <div class="modal-overlay" id="profileModal">
         <div class="modal-card modal-card-lg">
             <div class="modal-header">
@@ -338,7 +380,6 @@
                 <button type="button" class="btn-secondary" id="btnCloseProfileModal" style="padding:4px 10px; min-height: auto; flex:none;">Tutup</button>
             </div>
 
-            <!-- MODAL INTERNAL TABS -->
             <div class="auth-tab-bar" style="margin-bottom: 14px; flex-wrap: wrap;">
                 <div class="auth-tab-item active" id="profTabProfile" data-prof-sec="PROFILE">Edit Profil</div>
                 <div class="auth-tab-item" id="profTabSecurity" data-prof-sec="SECURITY">Password & Keamanan</div>
@@ -346,7 +387,7 @@
                 <div class="auth-tab-item" id="profTabPrefs" data-prof-sec="PREFS">Batas, Tema & Ekspor</div>
             </div>
 
-            <!-- BAGIAN 1: EDIT PROFIL (FOTO, NAMA TAMPILAN & USERNAME) -->
+            <!-- BAGIAN 1: EDIT PROFIL -->
             <div id="profSectionProfile">
                 <div class="profile-avatar-card">
                     <div class="profile-avatar-preview">
@@ -368,7 +409,6 @@
                     </div>
                 </div>
 
-                <!-- JIKA BELUM LOGIN (MODE TAMU) -->
                 <div id="profileGuestNoticeBox" class="panel" style="padding: 12px; margin-bottom: 0;">
                     <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">Anda Sedang Menggunakan Mode Tamu</div>
                     <p style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 10px;">
@@ -377,7 +417,6 @@
                     <button type="button" id="btnProfileOpenLogin" class="btn-blue" style="width: 100%;">Login / Daftar Akun Sekarang</button>
                 </div>
 
-                <!-- JIKA SUDAH LOGIN: EDIT NAMA & USERNAME -->
                 <div id="profileIdentityEditBox" style="display: none;">
                     <form id="formEditProfileIdentity" class="panel" style="padding: 12px; margin-bottom: 0;">
                         <div style="font-size: 0.84rem; font-weight: 700; margin-bottom: 8px;">Identitas Profil Pengguna</div>
@@ -411,7 +450,6 @@
                         <div style="font-size: 0.74rem; color: var(--text-secondary);">Terautentikasi via Firebase Auth & terlindungi UID Security Rules.</div>
                     </div>
 
-                    <!-- UBAH PASSWORD DENGAN VERIFIKASI PASSWORD LAMA -->
                     <div class="panel" style="padding: 12px; margin-bottom: 12px;">
                         <div style="font-size: 0.82rem; font-weight: 700; margin-bottom: 8px;">Ubah Password Akun</div>
                         <form id="formChangePassword">
@@ -435,7 +473,6 @@
 
                     <button type="button" id="btnAuthLogout" class="btn-outline" style="width: 100%; justify-content: center; background-color: var(--surface-subtle); color: var(--text-primary); border-color: var(--border); margin-bottom: 12px;">Keluar dari Akun (Logout)</button>
 
-                    <!-- ZONA PENGHAPUSAN AKUN -->
                     <div class="danger-zone-box">
                         <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent-rose); margin-bottom: 6px;">Zona Berbahaya (Hapus Akun Permanen)</div>
                         <p style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 8px;">Masukkan password sebelumnya untuk mengonfirmasi penghapusan seluruh data dan akun secara permanen.</p>
@@ -508,7 +545,7 @@
                 <!-- EKSPOR LAPORAN PDF & EXCEL -->
                 <div class="panel" style="padding: 12px; margin-bottom: 12px;">
                     <div style="font-size: 0.84rem; font-weight: 700; margin-bottom: 4px;">Ekspor Laporan Keuangan</div>
-                    <p style="font-size: 0.73rem; color: var(--text-secondary); margin-bottom: 10px;">Unduh atau cetak rekap mutasi sesuai filter periode yang sedang aktif di dasbor.</p>
+                    <p style="font-size: 0.73rem; color: var(--text-secondary); margin-bottom: 10px;">Unduh atau cetak rincian sisa saldo seluruh media tabungan & riwayat mutasi sesuai periode yang aktif.</p>
                     <div class="export-modal-actions">
                         <button type="button" class="btn-rose" id="btnExportPDF">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -554,7 +591,7 @@
         </div>
     </div>
 
-    <!-- MODAL LOGIN & REGISTRASI (TERPISAH DARI PROFIL) -->
+    <!-- MODAL LOGIN & REGISTRASI -->
     <div class="modal-overlay" id="authModal">
         <div class="modal-card">
             <div class="modal-header">
@@ -567,7 +604,6 @@
                 <div class="auth-tab-item" id="tabSwitchRegister" data-auth-mode="REGISTER">Registrasi Akun</div>
             </div>
 
-            <!-- LOGIN FORM -->
             <form id="formLoginMode">
                 <div class="form-group">
                     <label for="loginNickname">Username</label>
@@ -585,7 +621,6 @@
                 <button type="submit" id="btnSubmitLogin" class="btn-blue" style="width:100%; margin-top:8px;">Masuk & Sinkronisasi Data</button>
             </form>
 
-            <!-- REGISTER FORM -->
             <form id="formRegisterMode" style="display: none;">
                 <div class="form-group">
                     <label for="regUsername">Username Unik (Huruf & Angka, min. 4 karakter)</label>
