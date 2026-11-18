@@ -270,10 +270,13 @@ function persistLocalCache() {
 
 function saveData() {
     localRevision += 1;
-    persistLocalCache();
+    const localSaved = persistLocalCache();
+    if (!localSaved) {
+        alert('Peringatan Penyimpanan Lokal: Kapasitas penyimpanan browser penuh atau dibatasi. Perubahan berisiko tidak tersimpan secara lokal.');
+    }
 
     if (!(currentUser && isFirebaseActive && db && auth && auth.currentUser)) {
-        return Promise.resolve(true);
+        return Promise.resolve(localSaved);
     }
 
     return new Promise((resolve) => {
@@ -1707,14 +1710,13 @@ async function deleteGoal(id) {
     const agreed = await showVerificationConfirmModal({
         title: 'Verifikasi Hapus Tabungan Impian',
         message: relatedLogs.length > 0
-        ? `Hapus tabungan impian "${goal.name}"? Terdapat ${relatedLogs.length} riwayat alokasi terkait yang akan dibatalkan sehingga dana kembali ke saldo rekening sumber.`
+        ? `Hapus target tabungan impian "${goal.name}"? Riwayat ${relatedLogs.length} mutasi sebelumnya akan tetap dipertahankan di jurnal transaksi dengan status (Target Terarsip).`
         : `Apakah Anda yakin ingin menghapus tabungan impian "${goal.name}"?`,
-        confirmLabel: 'Ya, Hapus & Rekonsiliasi',
+        confirmLabel: 'Ya, Hapus Target',
         cancelLabel: 'Batal'
     });
     if (!agreed) return;
 
-    dailyLogs = dailyLogs.filter(l => l.category !== goalTag && l.accountId !== goalTag);
     goals = goals.filter(g => g.id !== id);
 
     await saveData();
