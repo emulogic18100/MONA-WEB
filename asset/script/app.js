@@ -1763,10 +1763,76 @@ async function addFundsToGoal(id) {
 // =========================================================================
 function exportPDF() {
     closeProfileModal();
-    const todayStr = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    ensureDefaultAccount();
+
+    const todayStr = new Date().toLocaleDateString('id-ID', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
     document.getElementById('pdfPrintDate').textContent = todayStr;
     document.getElementById('pdfPrintFilter').textContent = document.getElementById('recapPeriodTitle').textContent || 'Semua Data';
-    setTimeout(() => window.print(), 120);
+
+    // 1. Isi Tabel Sisa Saldo Media Tabungan (Bank, Digital Bank, E-Wallet, Cash)
+    const balances = calculateAccountBalances();
+    const isMulti = userSettings.savingsMode === 'MULTI';
+    const activeAccounts = isMulti ? userSettings.accounts : [userSettings.accounts[0]];
+    const balanceBody = document.getElementById('pdfPrintBalanceBody');
+    balanceBody.textContent = '';
+
+    let totalAllBalances = 0;
+
+    activeAccounts.forEach((acc, idx) => {
+        const bal = Number(balances[acc.id]) || 0;
+        totalAllBalances += bal;
+
+        const tr = document.createElement('tr');
+
+        const tdNo = document.createElement('td');
+        tdNo.className = 'text-center';
+        tdNo.textContent = String(idx + 1);
+
+        const tdName = document.createElement('td');
+        tdName.className = 'font-bold';
+        tdName.textContent = acc.name;
+
+        const tdType = document.createElement('td');
+        tdType.textContent = acc.type;
+
+        const tdBal = document.createElement('td');
+        tdBal.className = 'text-right font-bold';
+        tdBal.textContent = formatRupiah(bal);
+
+        tr.append(tdNo, tdName, tdType, tdBal);
+        balanceBody.appendChild(tr);
+    });
+
+    document.getElementById('pdfPrintTotalBalance').textContent = formatRupiah(totalAllBalances);
+
+    // 2. Hitung Ringkasan Mutasi Periode & Filter Aktif
+    const selectedType = document.getElementById('dailyFilterType').value;
+    let filtered = getFilteredLogs();
+    if (selectedType !== 'ALL') {
+        filtered = filtered.filter(l => l.type === selectedType);
+    }
+
+    let sumIncome = 0;
+    let sumExpense = 0;
+    let sumGoal = 0;
+
+    filtered.forEach(log => {
+        const amt = Number(log.amount) || 0;
+        if (log.type === 'PEMASUKAN') sumIncome += amt;
+        else if (log.type === 'PENGELUARAN') sumExpense += amt;
+        else if (log.type === 'TABUNGAN_GOAL') sumGoal += amt;
+    });
+
+        document.getElementById('pdfPrintPeriodIncome').textContent = formatRupiah(sumIncome);
+        document.getElementById('pdfPrintPeriodExpense').textContent = formatRupiah(sumExpense);
+        document.getElementById('pdfPrintPeriodGoal').textContent = formatRupiah(sumGoal);
+
+        setTimeout(() => window.print(), 120);
 }
 
 function exportExcel() {
