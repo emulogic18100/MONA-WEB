@@ -33,6 +33,7 @@ let hasPendingSync = false;
 let pendingSyncResolvers = [];
 let localRevision = 0;
 let isGuestNoticeDismissed = false;
+let useGoalFundsForExpense = false;
 
 let goals = [];
 let dailyLogs = [];
@@ -193,12 +194,38 @@ function getDateFromISOWeek(w, y) {
 }
 
 // =========================================================================
-// 4. ACCOUNT BALANCE ENGINE
+// 4. ACCOUNT BALANCE & GOAL STORE GROUPING ENGINE
 // =========================================================================
 function ensureDefaultAccount() {
     if (!Array.isArray(userSettings.accounts) || userSettings.accounts.length === 0) {
         userSettings.accounts = [{ id: 'acc_main', name: 'Kas Utama', type: 'Rekening Utama', initialBalance: 0 }];
     }
+}
+
+function getGoalStoreGroups() {
+    const groupsMap = new Map();
+    goals.forEach((g) => {
+        const key = normalizeStoreKey(g.storeIn);
+        const label = formatNormalizedStoreLabel(g.storeIn);
+        const bal = sanitizeFiniteAmount(g.current);
+        if (!groupsMap.has(key)) {
+            groupsMap.set(key, {
+                key,
+                label,
+                totalBalance: 0,
+                goals: []
+            });
+        }
+        const entry = groupsMap.get(key);
+        entry.totalBalance = sanitizeFiniteAmount(entry.totalBalance + bal);
+        entry.goals.push(g);
+    });
+    return Array.from(groupsMap.values());
+}
+
+function findGoalStoreGroupByKey(storeKey) {
+    const normalized = normalizeStoreKey(storeKey);
+    return getGoalStoreGroups().find(grp => grp.key === normalized) || null;
 }
 
 function calculateAccountBalances() {
@@ -213,12 +240,13 @@ function calculateAccountBalances() {
     dailyLogs.forEach(log => {
         const amt = Number(log.amount) || 0;
         const srcId = log.accountId || defaultAccId;
+        const isGoalSource = String(srcId).startsWith('GOAL_') || (Array.isArray(log.goalAllocations) && log.goalAllocations.length > 0);
 
         if (log.type === 'PEMASUKAN') {
             if (Object.prototype.hasOwnProperty.call(balances, srcId)) balances[srcId] += amt;
             else balances[defaultAccId] += amt;
         } else if (log.type === 'PENGELUARAN') {
-            if (!String(srcId).startsWith('GOAL_')) {
+            if (!isGoalSource) {
                 if (Object.prototype.hasOwnProperty.call(balances, srcId)) balances[srcId] -= amt;
                 else balances[defaultAccId] -= amt;
             }
@@ -231,8 +259,17 @@ function calculateAccountBalances() {
     return balances;
 }
 
-function getAccountNameById(accId) {
+function getAccountNameById(accId, logRef = null) {
+    if (logRef && logRef.type === 'PENGELUARAN' && Array.isArray(logRef.goalAllocations) && logRef.goalAllocations.length > 0) {
+        const storeLabel = logRef.goalStoreLabel || formatNormalizedStoreLabel(logRef.goalAllocations[0].storeKey);
+        return `Impian (${storeLabel})`;
+    }
     if (!accId) return userSettings.accounts[0]?.name || 'Kas Utama';
+    if (String(accId).startsWith('GOAL_STORE_')) {
+        const rawKey = String(accId).replace('GOAL_STORE_', '');
+        const grp = findGoalStoreGroupByKey(rawKey);
+        return grp ? `Impian (${grp.label})` : `Impian (${formatNormalizedStoreLabel(rawKey)})`;
+    }
     if (String(accId).startsWith('GOAL_')) {
         const gid = Number(String(accId).replace('GOAL_', ''));
         const g = goals.find(x => x.id === gid);
@@ -243,7 +280,103 @@ function getAccountNameById(accId) {
 }
 
 // =========================================================================
-// 5. DATA PERSISTENCE & SERIALIZED QUEUE CLOUD SYNC ENGINE
+// 5. DETERMINISTIC GOAL ALLOCATION & REVERSAL ENGINE
+// =========================================================================
+function computeDeterministicGoalAllocations(storeKey, totalAmount) {
+    const cleanAmount = sanitizeFiniteAmount(totalAmount);
+    if (cleanAmount <= 0) {
+        return { ok: false, reason: 'Nominal pengeluaran harus lebih besar dari Rp0.', allocations: [], group: null };
+    }
+
+    const group = findGoalStoreGroupByKey(storeKey);
+    if (!group || group.goals.length === 0) {
+        return { ok: false, reason: 'Kelompok tempat penyimpanan Tabungan Impian tidak ditemukan.', allocations: [], group: null };
+    }
+
+    if (cleanAmount > group.totalBalance) {
+        return {
+            ok: false,
+            reason: `Saldo gabungan Tabungan Impian di "${group.label}" (${formatRupiah(group.totalBalance, false)}) tidak mencukupi untuk penarikan ${formatRupiah(cleanAmount, false)}.`,
+            allocations: [],
+            group
+        };
+    }
+
+    let remaining = cleanAmount;
+    const allocations = [];
+
+    for (let i = 0; i < group.goals.length && remaining > 0; i++) {
+        const goal = group.goals[i];
+        const available = sanitizeFiniteAmount(goal.current);
+        if (available <= 0) continue;
+
+        const take = Math.min(available, remaining);
+        if (take > 0) {
+            allocations.push({
+                goalId: goal.id,
+                goalName: goal.name,
+                storeKey: group.key,
+                amount: sanitizeFiniteAmount(take)
+            });
+            remaining = sanitizeFiniteAmount(remaining - take);
+        }
+    }
+
+    const allocatedSum = sanitizeFiniteAmount(allocations.reduce((acc, item) => acc + (Number(item.amount) || 0), 0));
+    if (remaining > 0 || allocatedSum !== cleanAmount) {
+        return {
+            ok: false,
+            reason: 'Alokasi dana tidak dapat dipenuhi secara penuh dari saldo target yang tersedia.',
+            allocations: [],
+            group
+        };
+    }
+
+    return { ok: true, allocations, group };
+}
+
+function applyGoalAllocations(allocations) {
+    if (!Array.isArray(allocations)) return;
+    allocations.forEach(alloc => {
+        const g = goals.find(x => x.id === Number(alloc.goalId));
+        if (g) {
+            const take = sanitizeFiniteAmount(alloc.amount);
+            g.current = sanitizeFiniteAmount(Math.max(0, (Number(g.current) || 0) - take));
+        }
+    });
+}
+
+function revertLogEffectOnGoals(log) {
+    if (!log) return;
+    const amt = Number(log.amount) || 0;
+
+    if (log.type === 'TABUNGAN_GOAL' && String(log.category).startsWith('GOAL_')) {
+        const gid = Number(String(log.category).replace('GOAL_', ''));
+        const g = goals.find(x => x.id === gid);
+        if (g) g.current = sanitizeFiniteAmount(Math.max(0, (Number(g.current) || 0) - amt));
+        return;
+    }
+
+    if (log.type === 'PENGELUARAN') {
+        if (Array.isArray(log.goalAllocations) && log.goalAllocations.length > 0) {
+            log.goalAllocations.forEach(alloc => {
+                const g = goals.find(x => x.id === Number(alloc.goalId));
+                if (g) {
+                    g.current = sanitizeFiniteAmount((Number(g.current) || 0) + (Number(alloc.amount) || 0));
+                }
+            });
+            return;
+        }
+        if (String(log.accountId).startsWith('GOAL_') && !String(log.accountId).startsWith('GOAL_STORE_')) {
+            const gid = Number(String(log.accountId).replace('GOAL_', ''));
+            const g = goals.find(x => x.id === gid);
+            if (g) g.current = sanitizeFiniteAmount((Number(g.current) || 0) + amt);
+        }
+    }
+}
+
+// =========================================================================
+// 6. DATA PERSISTENCE & SERIALIZED QUEUE CLOUD SYNC ENGINE
 // =========================================================================
 function initApp() {
     initTheme();
@@ -293,15 +426,24 @@ function initApp() {
 }
 
 function loadLocalData(uid = null) {
-    const prefix = uid ? `mona_uid_${uid}_` : 'mona_';
     try {
-        const rawGoals = JSON.parse(localStorage.getItem(`${prefix}goals_v14`) || localStorage.getItem('mona_goals_v14') || '[]');
-        const rawLogs = JSON.parse(localStorage.getItem(`${prefix}daily_logs_v14`) || localStorage.getItem('mona_daily_logs_v14') || '[]');
-        const rawSettings = JSON.parse(localStorage.getItem(`${prefix}settings_v14`) || localStorage.getItem('mona_settings_v14') || 'null');
-        localRevision = Number(localStorage.getItem(`${prefix}revision_v14`) || 0);
+        let rawGoals, rawLogs, rawSettings, rawRev;
+        if (uid) {
+            const prefix = `mona_uid_${uid}_`;
+            rawGoals = JSON.parse(localStorage.getItem(`${prefix}goals_v14`) || '[]');
+            rawLogs = JSON.parse(localStorage.getItem(`${prefix}daily_logs_v14`) || '[]');
+            rawSettings = JSON.parse(localStorage.getItem(`${prefix}settings_v14`) || 'null');
+            rawRev = localStorage.getItem(`${prefix}revision_v14`) || '0';
+        } else {
+            rawGoals = JSON.parse(localStorage.getItem('mona_goals_v14') || '[]');
+            rawLogs = JSON.parse(localStorage.getItem('mona_daily_logs_v14') || '[]');
+            rawSettings = JSON.parse(localStorage.getItem('mona_settings_v14') || 'null');
+            rawRev = localStorage.getItem('mona_guest_revision_v14') || '0';
+        }
 
-        goals = Array.isArray(rawGoals) ? rawGoals.map((g, i) => sanitizeGoalObject(g, i)).filter(Boolean) : [];
-        dailyLogs = Array.isArray(rawLogs) ? rawLogs.map((l, i) => sanitizeLogObject(l, i)).filter(Boolean) : [];
+        localRevision = Number(rawRev) || 0;
+        goals = Array.isArray(rawGoals) ? rawGoals.slice(0, MAX_GOALS_COUNT).map((g, i) => sanitizeGoalObject(g, i)).filter(Boolean) : [];
+        dailyLogs = Array.isArray(rawLogs) ? rawLogs.slice(0, MAX_LOGS_COUNT).map((l, i) => sanitizeLogObject(l, i)).filter(Boolean) : [];
         userSettings = sanitizeSettingsObject(rawSettings);
     } catch (e) {
         goals = [];
@@ -313,12 +455,19 @@ function loadLocalData(uid = null) {
 }
 
 function persistLocalCache() {
-    const prefix = currentUser ? `mona_uid_${currentUser.uid}_` : 'mona_';
     try {
-        localStorage.setItem(`${prefix}goals_v14`, JSON.stringify(goals));
-        localStorage.setItem(`${prefix}daily_logs_v14`, JSON.stringify(dailyLogs));
-        localStorage.setItem(`${prefix}settings_v14`, JSON.stringify(userSettings));
-        localStorage.setItem(`${prefix}revision_v14`, String(localRevision));
+        if (currentUser) {
+            const prefix = `mona_uid_${currentUser.uid}_`;
+            localStorage.setItem(`${prefix}goals_v14`, JSON.stringify(goals));
+            localStorage.setItem(`${prefix}daily_logs_v14`, JSON.stringify(dailyLogs));
+            localStorage.setItem(`${prefix}settings_v14`, JSON.stringify(userSettings));
+            localStorage.setItem(`${prefix}revision_v14`, String(localRevision));
+        } else {
+            localStorage.setItem('mona_goals_v14', JSON.stringify(goals));
+            localStorage.setItem('mona_daily_logs_v14', JSON.stringify(dailyLogs));
+            localStorage.setItem('mona_settings_v14', JSON.stringify(userSettings));
+            localStorage.setItem('mona_guest_revision_v14', String(localRevision));
+        }
         return true;
     } catch (err) {
         console.warn('Penyimpanan lokal penuh atau dibatasi:', err);
@@ -370,8 +519,8 @@ async function flushSyncQueue() {
             await db.collection('users').doc(auth.currentUser.uid).set({
                 nickname: normalizePlainText(currentUser.nickname, 32),
                                                                        username: cleanAlphaNum(currentUser.username),
-                                                                       goals: goals,
-                                                                       dailyLogs: dailyLogs,
+                                                                       goals: goals.slice(0, MAX_GOALS_COUNT),
+                                                                       dailyLogs: dailyLogs.slice(0, MAX_LOGS_COUNT),
                                                                        userSettings: userSettings,
                                                                        revision: localRevision,
                                                                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -417,8 +566,8 @@ function setupFirestoreSync() {
             if (typeof data.username === 'string' && data.username.trim()) {
                 currentUser.username = cleanAlphaNum(data.username);
             }
-            goals = Array.isArray(data.goals) ? data.goals.map((g, i) => sanitizeGoalObject(g, i)).filter(Boolean) : [];
-            dailyLogs = Array.isArray(data.dailyLogs) ? data.dailyLogs.map((l, i) => sanitizeLogObject(l, i)).filter(Boolean) : [];
+            goals = Array.isArray(data.goals) ? data.goals.slice(0, MAX_GOALS_COUNT).map((g, i) => sanitizeGoalObject(g, i)).filter(Boolean) : [];
+            dailyLogs = Array.isArray(data.dailyLogs) ? data.dailyLogs.slice(0, MAX_LOGS_COUNT).map((l, i) => sanitizeLogObject(l, i)).filter(Boolean) : [];
             userSettings = sanitizeSettingsObject(data.userSettings);
             ensureDefaultAccount();
             persistLocalCache();
@@ -442,7 +591,7 @@ function refreshAllViews() {
 }
 
 // =========================================================================
-// 6. PROFIL TERPISAH, AUTH MODAL TERPISAH, AVATAR & MULTI-TABUNGAN
+// 7. PROFIL TERPISAH, AUTH MODAL TERPISAH, AVATAR & MULTI-TABUNGAN
 // =========================================================================
 function switchProfileSection(sec) {
     ['PROFILE', 'SECURITY', 'SAVINGS', 'PREFS'].forEach(key => {
@@ -712,6 +861,11 @@ function renderSavingsAccountManager() {
 }
 
 async function handleAddSavingsAccount() {
+    if (userSettings.accounts.length >= MAX_ACCOUNTS_COUNT) {
+        await showThemeAlert(`Batas maksimum ${MAX_ACCOUNTS_COUNT} media tabungan telah tercapai.`, 'Batas Media Tabungan', 'warning');
+        return;
+    }
+
     const name = normalizePlainText(document.getElementById('newAccName').value, 30);
     const type = normalizePlainText(document.getElementById('newAccType').value, 30);
     const initialBalance = parseMoneyInput(document.getElementById('newAccBalance').value);
@@ -1071,6 +1225,7 @@ async function handleDeleteAccount() {
             unsubscribeFirestore = null;
         }
 
+        const revAfterDeleteAttempt = localRevision + 1;
         await db.collection('users').doc(uid).delete();
         try {
             await user.delete();
@@ -1081,6 +1236,7 @@ async function handleDeleteAccount() {
                 goals: [],
                 dailyLogs: [],
                 userSettings: sanitizeSettingsObject(null),
+                                                      revision: revAfterDeleteAttempt,
                                                       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             throw authDelErr;
@@ -1151,7 +1307,7 @@ function updateAuthUI(status = 'offline') {
 }
 
 // =========================================================================
-// 7. UI NAVIGATION & DYNAMIC FORM SELECTORS
+// 8. UI NAVIGATION, EXPENSE GOAL TOGGLE & DYNAMIC FORM SELECTORS
 // =========================================================================
 function switchTab(tabId, btnElem) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -1174,7 +1330,46 @@ function toggleFilterModeControls() {
     updateAllCalculations();
 }
 
-function populateAccountSourceSelect(selectElem, type, selectedVal = '') {
+function syncExpenseGoalToggleUI(type) {
+    const toggleBox = document.getElementById('expenseGoalToggleBox');
+    const switchBtn = document.getElementById('btnToggleUseGoalFunds');
+    const statusLabel = document.getElementById('goalToggleStatusText');
+    const descLabel = document.getElementById('goalToggleDescText');
+
+    if (type !== 'PENGELUARAN') {
+        useGoalFundsForExpense = false;
+        if (toggleBox) toggleBox.style.display = 'none';
+    } else if (toggleBox) {
+        toggleBox.style.display = 'flex';
+    }
+
+    if (switchBtn) {
+        switchBtn.setAttribute('aria-checked', useGoalFundsForExpense ? 'true' : 'false');
+    }
+    if (statusLabel) {
+        statusLabel.textContent = useGoalFundsForExpense ? 'ON' : 'OFF';
+        statusLabel.classList.toggle('is-on', useGoalFundsForExpense);
+    }
+    if (descLabel) {
+        descLabel.textContent = useGoalFundsForExpense
+        ? 'Mengambil dari saldo gabungan Tabungan Impian per tempat penyimpanan.'
+        : 'Mengambil dari media tabungan utama (rekening, bank digital, e-wallet, tunai).';
+    }
+}
+
+function toggleExpenseGoalSource() {
+    const currentType = document.getElementById('dailyType').value;
+    if (currentType !== 'PENGELUARAN') {
+        useGoalFundsForExpense = false;
+        syncExpenseGoalToggleUI(currentType);
+        return;
+    }
+    useGoalFundsForExpense = !useGoalFundsForExpense;
+    syncExpenseGoalToggleUI('PENGELUARAN');
+    populateAccountSourceSelect(document.getElementById('dailyAccountSource'), 'PENGELUARAN', '');
+}
+
+function populateAccountSourceSelect(selectElem, type, selectedVal = '', logContext = null) {
     if (!selectElem) return;
     ensureDefaultAccount();
     const isMulti = userSettings.savingsMode === 'MULTI';
@@ -1182,6 +1377,57 @@ function populateAccountSourceSelect(selectElem, type, selectedVal = '') {
     const balances = calculateAccountBalances();
 
     selectElem.textContent = '';
+
+    const isExpenseFromGoalGroup = (type === 'PENGELUARAN') && (
+        (logContext && (Array.isArray(logContext.goalAllocations) && logContext.goalAllocations.length > 0 || String(logContext.accountId).startsWith('GOAL_'))) ||
+        (!logContext && useGoalFundsForExpense)
+    );
+
+    if (isExpenseFromGoalGroup) {
+        const storeGroups = getGoalStoreGroups();
+        if (storeGroups.length === 0) {
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '-- Belum Ada Tabungan Impian --';
+            selectElem.appendChild(emptyOpt);
+            return;
+        }
+
+        const goalGroupOpt = document.createElement('optgroup');
+        goalGroupOpt.label = 'Tabungan Impian (Per Tempat Penyimpanan)';
+        storeGroups.forEach((grp) => {
+            const opt = document.createElement('option');
+            opt.value = `GOAL_STORE_${grp.key}`;
+            opt.textContent = `${grp.label} — ${formatRupiah(grp.totalBalance, false)}`;
+            goalGroupOpt.appendChild(opt);
+        });
+        selectElem.appendChild(goalGroupOpt);
+
+        if (selectedVal && String(selectedVal).startsWith('GOAL_') && !String(selectedVal).startsWith('GOAL_STORE_')) {
+            const legacyId = Number(String(selectedVal).replace('GOAL_', ''));
+            const legacyGoal = goals.find(g => g.id === legacyId);
+            if (legacyGoal) {
+                const matchedGroup = findGoalStoreGroupByKey(legacyGoal.storeIn);
+                if (matchedGroup) {
+                    selectElem.value = `GOAL_STORE_${matchedGroup.key}`;
+                    return;
+                }
+            }
+            const archivedOpt = document.createElement('option');
+            archivedOpt.value = selectedVal;
+            archivedOpt.textContent = 'Tabungan Impian (Target Terarsip)';
+            selectElem.appendChild(archivedOpt);
+            selectElem.value = selectedVal;
+            return;
+        }
+
+        if (selectedVal && Array.from(selectElem.options).some(o => o.value === selectedVal)) {
+            selectElem.value = selectedVal;
+        } else if (selectElem.options.length > 0) {
+            selectElem.selectedIndex = 0;
+        }
+        return;
+    }
 
     const mainGroup = document.createElement('optgroup');
     mainGroup.label = 'Media Tabungan Utama';
@@ -1193,19 +1439,11 @@ function populateAccountSourceSelect(selectElem, type, selectedVal = '') {
     });
     selectElem.appendChild(mainGroup);
 
-    if (type === 'PENGELUARAN' && goals.length > 0) {
-        const goalGroup = document.createElement('optgroup');
-        goalGroup.label = 'Tarik Dana Darurat dari Tabungan Impian';
-        goals.forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = `GOAL_${g.id}`;
-            opt.textContent = `Impian: ${g.name} (Saldo: ${formatRupiah(g.current, false)})`;
-            goalGroup.appendChild(opt);
-        });
-        selectElem.appendChild(goalGroup);
+    if (selectedVal && Array.from(selectElem.options).some(o => o.value === selectedVal)) {
+        selectElem.value = selectedVal;
+    } else if (selectElem.options.length > 0) {
+        selectElem.selectedIndex = 0;
     }
-
-    if (selectedVal) selectElem.value = selectedVal;
 }
 
 function populateCategorySelect(selectElem, type, selectedVal = '') {
@@ -1257,31 +1495,50 @@ function populateCategorySelect(selectElem, type, selectedVal = '') {
         }
     }
 
-    if (selectedVal) selectElem.value = selectedVal;
+    if (selectedVal && Array.from(selectElem.options).some(o => o.value === selectedVal)) {
+        selectElem.value = selectedVal;
+    }
 }
 
 function updateTransactionFormOptions() {
     const type = document.getElementById('dailyType').value;
     const lblAcc = document.getElementById('lblDailyAccount');
-    if (type === 'PEMASUKAN') lblAcc.textContent = 'Masuk ke Media Tabungan';
-    else if (type === 'TABUNGAN_GOAL') lblAcc.textContent = 'Ambil dari Sumber Tabungan';
-    else lblAcc.textContent = 'Sumber Dana Pengeluaran';
 
-    populateAccountSourceSelect(document.getElementById('dailyAccountSource'), type);
+    if (type !== 'PENGELUARAN') {
+        useGoalFundsForExpense = false;
+    }
+    syncExpenseGoalToggleUI(type);
+
+    if (type === 'PEMASUKAN') {
+        lblAcc.textContent = 'Masuk ke Media Tabungan';
+    } else if (type === 'TABUNGAN_GOAL') {
+        lblAcc.textContent = 'Ambil dari Sumber Tabungan';
+    } else {
+        lblAcc.textContent = useGoalFundsForExpense
+        ? 'Sumber Tabungan Impian (Per Tempat Penyimpanan)'
+        : 'Sumber Dana Pengeluaran';
+    }
+
+    populateAccountSourceSelect(document.getElementById('dailyAccountSource'), type, '', null);
     populateCategorySelect(document.getElementById('dailyCategory'), type);
 }
 
-function updateEditTransactionFormOptions(selectedAcc = '', selectedCat = '') {
+function updateEditTransactionFormOptions(selectedAcc = '', selectedCat = '', logContext = null) {
     const type = document.getElementById('editLogType').value;
-    populateAccountSourceSelect(document.getElementById('editLogAccountSource'), type, selectedAcc);
+    populateAccountSourceSelect(document.getElementById('editLogAccountSource'), type, selectedAcc, logContext);
     populateCategorySelect(document.getElementById('editLogCategory'), type, selectedCat);
 }
 
 // =========================================================================
-// 8. TRANSACTION MUTATION HANDLERS (ATOMIC VALIDATION & OVERDRAFT GUARD)
+// 9. TRANSACTION MUTATION HANDLERS (ATOMIC VALIDATION & DETERMINISTIC GOAL SPLIT)
 // =========================================================================
 async function handleDailySubmit(e) {
     e.preventDefault();
+    if (dailyLogs.length >= MAX_LOGS_COUNT) {
+        await showThemeAlert(`Batas maksimum ${MAX_LOGS_COUNT} catatan mutasi telah tercapai.`, 'Batas Riwayat Mutasi', 'warning');
+        return;
+    }
+
     const date = document.getElementById('dailyDate').value;
     const type = document.getElementById('dailyType').value;
     const accountId = document.getElementById('dailyAccountSource').value;
@@ -1308,7 +1565,23 @@ async function handleDailySubmit(e) {
         }
     }
 
-    if ((type === 'PENGELUARAN' && !String(accountId).startsWith('GOAL_')) || type === 'TABUNGAN_GOAL') {
+    let computedGoalAllocations = [];
+    let resolvedGoalStoreLabel = '';
+
+    if (type === 'PENGELUARAN' && useGoalFundsForExpense) {
+        if (!String(accountId).startsWith('GOAL_STORE_')) {
+            await showThemeAlert('Pilih kelompok tempat penyimpanan Tabungan Impian yang valid.', 'Validasi Sumber Impian', 'warning');
+            return;
+        }
+        const storeKey = String(accountId).replace('GOAL_STORE_', '');
+        const allocResult = computeDeterministicGoalAllocations(storeKey, amount);
+        if (!allocResult.ok) {
+            await showThemeAlert(allocResult.reason, 'Saldo Tabungan Impian Tidak Mencukupi', 'error');
+            return;
+        }
+        computedGoalAllocations = allocResult.allocations;
+        resolvedGoalStoreLabel = allocResult.group.label;
+    } else if ((type === 'PENGELUARAN' && !String(accountId).startsWith('GOAL_')) || type === 'TABUNGAN_GOAL') {
         const balances = calculateAccountBalances();
         const currentBal = balances[accountId] || 0;
         if (amount > currentBal) {
@@ -1332,32 +1605,24 @@ async function handleDailySubmit(e) {
             if (goal) {
                 goal.current = sanitizeFiniteAmount((Number(goal.current) || 0) + amount);
             }
-        } else if (type === 'PENGELUARAN' && String(accountId).startsWith('GOAL_')) {
-            const goalId = Number(String(accountId).replace('GOAL_', ''));
-            const goal = goals.find(g => g.id === goalId);
-            if (goal) {
-                if (amount > goal.current) {
-                    const ok = await showVerificationConfirmModal({
-                        title: 'Saldo Impian Tidak Mencukupi',
-                        message: `Saldo tabungan impian "${goal.name}" hanya ${formatRupiah(goal.current, false)}. Tetap kurangi hingga Rp0?`,
-                                                                  confirmLabel: 'Ya, Tetap Kurangi'
-                    });
-                    if (!ok) return;
-                }
-                goal.current = Math.max(0, (Number(goal.current) || 0) - amount);
-            }
+        } else if (type === 'PENGELUARAN' && useGoalFundsForExpense) {
+            applyGoalAllocations(computedGoalAllocations);
         }
 
-        dailyLogs.unshift(sanitizeLogObject({
+        const newLog = sanitizeLogObject({
             id: generateUniqueNumericId(),
-                                            date,
-                                            type,
-                                            accountId,
-                                            category,
-                                            title,
-                                            amount,
-                                            notes
-        }));
+                                         date,
+                                         type,
+                                         accountId,
+                                         category,
+                                         title,
+                                         amount,
+                                         notes,
+                                         goalAllocations: computedGoalAllocations,
+                                         goalStoreLabel: resolvedGoalStoreLabel
+        });
+
+        dailyLogs.unshift(newLog);
 
         await saveData();
         refreshAllViews();
@@ -1370,20 +1635,6 @@ async function handleDailySubmit(e) {
     }
 }
 
-function revertLogEffectOnGoals(log) {
-    if (!log) return;
-    const amt = Number(log.amount) || 0;
-    if (log.type === 'TABUNGAN_GOAL' && String(log.category).startsWith('GOAL_')) {
-        const gid = Number(String(log.category).replace('GOAL_', ''));
-        const g = goals.find(x => x.id === gid);
-        if (g) g.current = Math.max(0, (Number(g.current) || 0) - amt);
-    } else if (log.type === 'PENGELUARAN' && String(log.accountId).startsWith('GOAL_')) {
-        const gid = Number(String(log.accountId).replace('GOAL_', ''));
-        const g = goals.find(x => x.id === gid);
-        if (g) g.current = sanitizeFiniteAmount((Number(g.current) || 0) + amt);
-    }
-}
-
 function openEditLogModal(id) {
     const log = dailyLogs.find(l => l.id === id);
     if (!log) return;
@@ -1391,7 +1642,7 @@ function openEditLogModal(id) {
     document.getElementById('editLogId').value = log.id;
     document.getElementById('editLogDate').value = log.date;
     document.getElementById('editLogType').value = log.type;
-    updateEditTransactionFormOptions(log.accountId, log.category);
+    updateEditTransactionFormOptions(log.accountId, log.category, log);
     document.getElementById('editLogTitle').value = log.title;
     document.getElementById('editLogAmount').value = log.amount ? log.amount.toLocaleString('id-ID') : '';
     document.getElementById('editLogNotes').value = log.notes || '';
@@ -1406,6 +1657,9 @@ async function saveEditLogModal() {
     const id = Number(document.getElementById('editLogId').value);
     const idx = dailyLogs.findIndex(l => l.id === id);
     if (idx === -1) return;
+
+    const originalLog = dailyLogs[idx];
+    const prevGoalsSnapshot = goals.map(g => ({ ...g }));
 
     const date = document.getElementById('editLogDate').value;
     const type = document.getElementById('editLogType').value;
@@ -1432,19 +1686,69 @@ async function saveEditLogModal() {
         }
     }
 
-    revertLogEffectOnGoals(dailyLogs[idx]);
+    // 1. Kembalikan alokasi / efek transaksi sebelumnya pada target impian
+    revertLogEffectOnGoals(originalLog);
 
-    if (type === 'TABUNGAN_GOAL' && String(category).startsWith('GOAL_')) {
-        const gid = Number(String(category).replace('GOAL_', ''));
-        const g = goals.find(x => x.id === gid);
-        if (g) g.current = sanitizeFiniteAmount((Number(g.current) || 0) + amount);
+    let newGoalAllocations = [];
+    let newGoalStoreLabel = '';
+
+    // 2. Validasi sumber dana dan saldo terbaru, lalu hitung alokasi baru
+    if (type === 'PENGELUARAN' && String(accountId).startsWith('GOAL_STORE_')) {
+        const storeKey = String(accountId).replace('GOAL_STORE_', '');
+        const allocResult = computeDeterministicGoalAllocations(storeKey, amount);
+        if (!allocResult.ok) {
+            goals = prevGoalsSnapshot;
+            await showThemeAlert(allocResult.reason, 'Saldo Tabungan Impian Tidak Mencukupi', 'error');
+            return;
+        }
+        newGoalAllocations = allocResult.allocations;
+        newGoalStoreLabel = allocResult.group.label;
+        applyGoalAllocations(newGoalAllocations);
     } else if (type === 'PENGELUARAN' && String(accountId).startsWith('GOAL_')) {
         const gid = Number(String(accountId).replace('GOAL_', ''));
         const g = goals.find(x => x.id === gid);
-        if (g) g.current = Math.max(0, (Number(g.current) || 0) - amount);
+        if (!g) {
+            goals = prevGoalsSnapshot;
+            await showThemeAlert('Target Tabungan Impian sudah tidak tersedia.', 'Target Tidak Ditemukan', 'error');
+            return;
+        }
+        if (amount > (Number(g.current) || 0)) {
+            goals = prevGoalsSnapshot;
+            await showThemeAlert(
+                `Saldo tabungan impian "${g.name}" (${formatRupiah(g.current, false)}) tidak mencukupi untuk penarikan ${formatRupiah(amount, false)}.`,
+                                 'Saldo Tabungan Impian Tidak Mencukupi',
+                                 'error'
+            );
+            return;
+        }
+        g.current = sanitizeFiniteAmount((Number(g.current) || 0) - amount);
+        newGoalAllocations = [{
+            goalId: g.id,
+            goalName: g.name,
+            storeKey: normalizeStoreKey(g.storeIn),
+            amount
+        }];
+        newGoalStoreLabel = formatNormalizedStoreLabel(g.storeIn);
+    } else if (type === 'TABUNGAN_GOAL' && String(category).startsWith('GOAL_')) {
+        const gid = Number(String(category).replace('GOAL_', ''));
+        const g = goals.find(x => x.id === gid);
+        if (g) g.current = sanitizeFiniteAmount((Number(g.current) || 0) + amount);
     }
 
-    dailyLogs[idx] = sanitizeLogObject({ id, date, type, accountId, category, title, amount, notes });
+    // 3. Simpan transaksi dan alokasi yang baru secara tunggal
+    dailyLogs[idx] = sanitizeLogObject({
+        id,
+        date,
+        type,
+        accountId,
+        category,
+        title,
+        amount,
+        notes,
+        goalAllocations: newGoalAllocations,
+        goalStoreLabel: newGoalStoreLabel
+    });
+
     await saveData();
     refreshAllViews();
     closeEditLogModal();
@@ -1534,7 +1838,7 @@ function renderDailyLogs() {
             displayCat = g ? `Impian: ${g.name}` : 'Alokasi Impian (Terarsip)';
         }
 
-        const mediaName = getAccountNameById(log.accountId);
+        const mediaName = getAccountNameById(log.accountId, log);
         const dParts = isValidIsoDate(log.date) ? log.date.split('-') : [];
         const shortDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : '-';
 
@@ -1568,6 +1872,16 @@ function renderDailyLogs() {
         titleDiv.textContent = log.title;
 
         tdInfo.append(rowTop, titleDiv);
+
+        if (Array.isArray(log.goalAllocations) && log.goalAllocations.length > 0) {
+            const allocSummary = log.goalAllocations
+            .map(a => `${a.goalName}: ${formatRupiah(a.amount, false)}`)
+            .join(' · ');
+            const allocDiv = document.createElement('div');
+            allocDiv.className = 'item-meta';
+            allocDiv.textContent = `Alokasi: ${allocSummary}`;
+            tdInfo.appendChild(allocDiv);
+        }
 
         if (log.notes) {
             const notesDiv = document.createElement('div');
@@ -1610,7 +1924,7 @@ function renderDailyLogs() {
 }
 
 // =========================================================================
-// 9. TABUNGAN IMPIAN ENGINE (TERMASUK MODAL SETOR SESUAI TEMA & RENCANA)
+// 10. TABUNGAN IMPIAN ENGINE (TERMASUK MODAL SETOR SESUAI TEMA & RENCANA)
 // =========================================================================
 function renderGoals() {
     const container = document.getElementById('goalsCardsList');
@@ -1632,7 +1946,7 @@ function renderGoals() {
         totalAccumulated += cur;
         const pct = tgt > 0 ? Math.min(100, Math.round((cur / tgt) * 100)) : 0;
 
-        const storeLabel = goal.storeIn || 'Belum Ditentukan';
+        const storeLabel = formatNormalizedStoreLabel(goal.storeIn);
         const sourceLabel = goal.sourceFromName || getAccountNameById(goal.sourceFromId);
 
         const card = document.createElement('div');
@@ -1756,14 +2070,15 @@ function populateGoalModalDropdowns(selectedStore = '', selectedSource = '') {
     });
 
     if (selectedStore) {
-        const exists = Array.from(storeSel.options).some(o => o.value === selectedStore);
-        if (exists) {
-            storeSel.value = selectedStore;
+        const normalizedTarget = normalizeStoreKey(selectedStore);
+        const matchedOpt = Array.from(storeSel.options).find(o => o.value !== '__CUSTOM__' && normalizeStoreKey(o.value) === normalizedTarget);
+        if (matchedOpt) {
+            storeSel.value = matchedOpt.value;
             document.getElementById('customGoalStoreGroup').style.display = 'none';
         } else {
             storeSel.value = '__CUSTOM__';
             document.getElementById('customGoalStoreGroup').style.display = 'block';
-            document.getElementById('modalGoalCustomStore').value = selectedStore;
+            document.getElementById('modalGoalCustomStore').value = formatNormalizedStoreLabel(selectedStore);
         }
     } else {
         document.getElementById('customGoalStoreGroup').style.display = 'none';
@@ -1806,6 +2121,11 @@ function closeGoalModal() {
 
 async function saveGoalModal() {
     const id = document.getElementById('modalGoalId').value;
+    if (!id && goals.length >= MAX_GOALS_COUNT) {
+        await showThemeAlert(`Batas maksimum ${MAX_GOALS_COUNT} tabungan impian telah tercapai.`, 'Batas Target Impian', 'warning');
+        return;
+    }
+
     const name = normalizePlainText(document.getElementById('modalGoalName').value, 50);
     const target = parseMoneyInput(document.getElementById('modalGoalTarget').value);
     const current = parseMoneyInput(document.getElementById('modalGoalCurrent').value);
@@ -1813,9 +2133,10 @@ async function saveGoalModal() {
     const category = normalizePlainText(document.getElementById('modalGoalCategory').value, 40);
 
     const storeSelVal = document.getElementById('modalGoalStoreIn').value;
-    const storeIn = (storeSelVal === '__CUSTOM__')
-    ? normalizePlainText(document.getElementById('modalGoalCustomStore').value || 'Dompet Khusus', 35)
-    : normalizePlainText(storeSelVal, 35);
+    const rawStore = (storeSelVal === '__CUSTOM__')
+    ? (document.getElementById('modalGoalCustomStore').value || 'Dompet Khusus')
+    : storeSelVal;
+    const storeIn = formatNormalizedStoreLabel(rawStore);
 
     const sourceFromId = document.getElementById('modalGoalSourceFrom').value;
     const sourceFromName = getAccountNameById(sourceFromId);
@@ -1854,7 +2175,11 @@ async function deleteGoal(id) {
     if (!goal) return;
 
     const goalTag = `GOAL_${id}`;
-    const relatedLogs = dailyLogs.filter(l => l.category === goalTag || l.accountId === goalTag);
+    const relatedLogs = dailyLogs.filter(l =>
+    l.category === goalTag ||
+    l.accountId === goalTag ||
+    (Array.isArray(l.goalAllocations) && l.goalAllocations.some(a => Number(a.goalId) === Number(id)))
+    );
 
     const agreed = await showVerificationConfirmModal({
         title: 'Verifikasi Hapus Tabungan Impian',
@@ -1900,6 +2225,11 @@ function closeDepositGoalModal() {
 
 async function submitDepositGoalModal(e) {
     if (e) e.preventDefault();
+    if (dailyLogs.length >= MAX_LOGS_COUNT) {
+        await showThemeAlert(`Batas maksimum ${MAX_LOGS_COUNT} catatan mutasi telah tercapai.`, 'Batas Riwayat Mutasi', 'warning');
+        return;
+    }
+
     const id = Number(document.getElementById('depositGoalId').value);
     const goal = goals.find(g => g.id === id);
     if (!goal) {
@@ -1942,7 +2272,6 @@ async function submitDepositGoalModal(e) {
                                             notes: `Disimpan di ${goal.storeIn || 'Kas'}`
         }));
 
-        // Hanya menambah saldo terkumpul (goal.current), rencana bulanan awal (goal.monthly) tidak berubah
         goal.current = sanitizeFiniteAmount((Number(goal.current) || 0) + amount);
 
         await saveData();
@@ -1954,7 +2283,7 @@ async function submitDepositGoalModal(e) {
 }
 
 // =========================================================================
-// 10. EXPORT PDF & EXCEL (FORMULA-INJECTION SAFE)
+// 11. EXPORT PDF & EXCEL (FORMULA-INJECTION SAFE)
 // =========================================================================
 function exportPDF() {
     closeProfileModal();
@@ -2125,15 +2454,20 @@ async function exportExcel() {
             border: cellStyle.border
         };
 
+        const allocText = (Array.isArray(l.goalAllocations) && l.goalAllocations.length > 0)
+        ? `Alokasi: ${l.goalAllocations.map(a => `${a.goalName} (${formatRupiah(a.amount, false)})`).join('; ')}`
+        : '';
+        const mergedNotes = [allocText, l.notes].filter(Boolean).join(' | ') || '-';
+
         wsData.push([
             { v: index + 1, t: 'n', s: { ...cellStyle, alignment: { horizontal: "center" } } },
             { v: sanitizeExcelCellText(l.date), t: 's', s: { ...cellStyle, alignment: { horizontal: "center" } } },
                     { v: sanitizeExcelCellText(l.type), t: 's', s: typeBadgeStyle },
-                    { v: sanitizeExcelCellText(getAccountNameById(l.accountId)), t: 's', s: cellStyle },
+                    { v: sanitizeExcelCellText(getAccountNameById(l.accountId, l)), t: 's', s: cellStyle },
                     { v: sanitizeExcelCellText(displayCat), t: 's', s: cellStyle },
                     { v: sanitizeExcelCellText(l.title), t: 's', s: cellStyle },
                     { v: l.amount, t: 'n', s: numStyle },
-                    { v: sanitizeExcelCellText(l.notes || "-"), t: 's', s: cellStyle }
+                    { v: sanitizeExcelCellText(mergedNotes), t: 's', s: cellStyle }
         ]);
     });
 
@@ -2158,7 +2492,7 @@ async function exportExcel() {
     ];
     ws['!cols'] = [
         { wch: 5 }, { wch: 13 }, { wch: 18 }, { wch: 20 },
-        { wch: 24 }, { wch: 30 }, { wch: 18 }, { wch: 24 }
+        { wch: 24 }, { wch: 30 }, { wch: 18 }, { wch: 28 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Mutasi Keuangan");
@@ -2166,7 +2500,7 @@ async function exportExcel() {
 }
 
 // =========================================================================
-// 11. ANALYTICS CHARTS & OVERSPENDING NOTIFICATION ENGINE
+// 12. ANALYTICS CHARTS & OVERSPENDING NOTIFICATION ENGINE
 // =========================================================================
 function evaluateOverspendingAlert() {
     const alertBox = document.getElementById('spendingAlertBanner');
@@ -2334,7 +2668,7 @@ function renderDynamicAnalytics(categoryExpenses) {
 }
 
 // =========================================================================
-// 12. MASTER CALCULATION & RECAP ENGINE
+// 13. MASTER CALCULATION & RECAP ENGINE
 // =========================================================================
 function updateAllCalculations() {
     const filteredLogs = getFilteredLogs();
@@ -2521,7 +2855,7 @@ function updateAllCalculations() {
 }
 
 // =========================================================================
-// 13. EVENT LISTENERS BINDING & KEYBOARD MODAL ACCESSIBILITY
+// 14. EVENT LISTENERS BINDING & KEYBOARD MODAL ACCESSIBILITY
 // =========================================================================
 function bindStaticEventListeners() {
     document.getElementById('headerAvatarBox').addEventListener('click', () => openProfileModal('PROFILE'));
@@ -2557,6 +2891,7 @@ function bindStaticEventListeners() {
 
         document.getElementById('dailyForm').addEventListener('submit', handleDailySubmit);
         document.getElementById('dailyType').addEventListener('change', updateTransactionFormOptions);
+        document.getElementById('btnToggleUseGoalFunds').addEventListener('click', toggleExpenseGoalSource);
         document.getElementById('dailyFilterType').addEventListener('change', renderDailyLogs);
 
         document.getElementById('btnTabAddGoal').addEventListener('click', openAddGoalModal);
