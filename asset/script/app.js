@@ -1357,16 +1357,36 @@ function syncExpenseGoalToggleUI(type) {
     }
 }
 
-function toggleExpenseGoalSource() {
-    const currentType = document.getElementById('dailyType').value;
+let lastGoalToggleTime = 0;
+
+function toggleExpenseGoalSource(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const now = Date.now();
+    if (now - lastGoalToggleTime < 180) return;
+    lastGoalToggleTime = now;
+
+    const typeEl = document.getElementById('dailyType');
+    const currentType = typeEl ? typeEl.value : 'PENGELUARAN';
     if (currentType !== 'PENGELUARAN') {
         useGoalFundsForExpense = false;
         syncExpenseGoalToggleUI(currentType);
         return;
     }
+
     useGoalFundsForExpense = !useGoalFundsForExpense;
     syncExpenseGoalToggleUI('PENGELUARAN');
-    populateAccountSourceSelect(document.getElementById('dailyAccountSource'), 'PENGELUARAN', '');
+
+    const accSelect = document.getElementById('dailyAccountSource');
+    const lblAcc = document.getElementById('lblDailyAccount');
+    if (lblAcc) {
+        lblAcc.textContent = useGoalFundsForExpense
+            ? 'Sumber Tabungan Impian (Per Tempat Penyimpanan)'
+            : 'Sumber Dana Pengeluaran';
+    }
+    populateAccountSourceSelect(accSelect, 'PENGELUARAN', '', null);
 }
 
 function populateAccountSourceSelect(selectElem, type, selectedVal = '', logContext = null) {
