@@ -214,7 +214,16 @@
                         <label for="dailyDate">Tanggal Transaksi</label>
                         <input type="date" id="dailyDate" required>
                     </div>
-
+                    <div id="expenseGoalToggleBox" class="goal-source-toggle-box">
+                        <div class="goal-toggle-copy">
+                            <label for="btnToggleUseGoalFunds" id="lblToggleUseGoalFunds" class="goal-toggle-label">Gunakan Tabungan Impian</label>
+                            <span id="goalToggleDescText" class="goal-toggle-desc">Mengambil dari media tabungan utama (rekening, bank digital, e-wallet, tunai).</span>
+                        </div>
+                        <div class="goal-switch-control">
+                            <span id="goalToggleStatusText" class="goal-switch-status">OFF</span>
+                            <button type="button" id="btnToggleUseGoalFunds" class="goal-switch-btn" role="switch" aria-checked="false" aria-labelledby="lblToggleUseGoalFunds" aria-describedby="goalToggleDescText"></button>
+                        </div>
+                    </div>
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="dailyType">Jenis Mutasi</label>
