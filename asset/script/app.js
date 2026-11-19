@@ -2977,6 +2977,24 @@ function bindStaticEventListeners() {
         document.getElementById('btnCloseEditLogModal').addEventListener('click', closeEditLogModal);
         document.getElementById('btnCancelEditLogModal').addEventListener('click', closeEditLogModal);
         document.getElementById('btnSaveEditLogModal').addEventListener('click', saveEditLogModal);
+    
+        const goalToggleBtn = document.getElementById('btnToggleUseGoalFunds');
+        const goalToggleLbl = document.getElementById('lblToggleUseGoalFunds');
+        if (goalToggleBtn) {
+            goalToggleBtn.addEventListener('click', toggleExpenseGoalSource);
+            goalToggleBtn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    toggleExpenseGoalSource(e);
+                }
+            });
+        }
+        if (goalToggleLbl) {
+            goalToggleLbl.addEventListener('click', (e) => {
+                e.preventDefault();
+                toggleExpenseGoalSource(e);
+            });
+        }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
