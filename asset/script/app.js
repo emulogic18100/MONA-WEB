@@ -1383,7 +1383,7 @@ function toggleExpenseGoalSource(e) {
     const lblAcc = document.getElementById('lblDailyAccount');
     if (lblAcc) {
         lblAcc.textContent = useGoalFundsForExpense
-            ? 'Sumber Tabungan Impian (Per Tempat Penyimpanan)'
+            ? 'Sumber Tabungan Impian'
             : 'Sumber Dana Pengeluaran';
     }
     populateAccountSourceSelect(accSelect, 'PENGELUARAN', '', null);
