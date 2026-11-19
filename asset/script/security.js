@@ -5,6 +5,10 @@ const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const ALLOWED_MUTATION_TYPES = new Set(['PEMASUKAN', 'PENGELUARAN', 'TABUNGAN_GOAL']);
 const INTERNAL_AUTH_DOMAIN = '@mona-internal.app';
 const MAX_SAFE_MONEY = 999999999999; // Maksimum Rp 999 Miliar
+const MAX_GOALS_COUNT = 100;
+const MAX_LOGS_COUNT = 5000;
+const MAX_ACCOUNTS_COUNT = 25;
+const MAX_ALLOCATIONS_PER_LOG = 50;
 
 let uniqueIdCounter = 0;
 function generateUniqueNumericId() {
@@ -28,6 +32,17 @@ function sanitizeFiniteAmount(val, maxVal = MAX_SAFE_MONEY) {
 function normalizePlainText(str, maxLen = 120) {
     if (typeof str !== 'string') return '';
     return str.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, maxLen);
+}
+
+function normalizeStoreKey(storeName) {
+    const clean = normalizePlainText(storeName, 35);
+    if (!clean) return 'kas utama';
+    return clean.replace(/\s+/g, ' ').toLowerCase();
+}
+
+function formatNormalizedStoreLabel(storeName) {
+    const clean = normalizePlainText(storeName, 35).replace(/\s+/g, ' ');
+    return clean || 'Kas Utama';
 }
 
 function cleanAlphaNum(str) {
@@ -55,14 +70,40 @@ function isValidIsoDate(dateStr) {
 
 function isValidAccountId(id) {
     if (typeof id !== 'string') return false;
-    return /^(acc_[a-zA-Z0-9_-]+|GOAL_\d+)$/.test(id);
+    return /^(acc_[a-zA-Z0-9_-]{1,40}|GOAL_\d+|GOAL_STORE_[a-zA-Z0-9_-]{1,64})$/.test(id);
+}
+
+function sanitizeGoalAllocationItem(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const goalId = Number(raw.goalId);
+    const amount = sanitizeFiniteAmount(raw.amount);
+    if (!Number.isSafeInteger(goalId) || goalId <= 0 || amount <= 0) return null;
+    const goalName = normalizePlainText(raw.goalName, 50) || 'Tabungan Impian';
+    const storeKey = normalizeStoreKey(raw.storeKey || raw.storeIn || 'Kas Utama').slice(0, 40);
+    return { goalId, goalName, storeKey, amount };
+}
+
+function sanitizeGoalAllocationsArray(rawList) {
+    if (!Array.isArray(rawList)) return [];
+    const merged = new Map();
+    for (let i = 0; i < rawList.length && merged.size < MAX_ALLOCATIONS_PER_LOG; i++) {
+        const item = sanitizeGoalAllocationItem(rawList[i]);
+        if (!item) continue;
+        if (merged.has(item.goalId)) {
+            const existing = merged.get(item.goalId);
+            existing.amount = sanitizeFiniteAmount(existing.amount + item.amount);
+        } else {
+            merged.set(item.goalId, { ...item });
+        }
+    }
+    return Array.from(merged.values());
 }
 
 function sanitizeAccountObject(raw, fallbackIdx = 0, existingIds = new Set()) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    let id = (typeof raw.id === 'string' && /^acc_[a-zA-Z0-9_-]+$/.test(raw.id))
-        ? raw.id
-        : `acc_${generateUniqueNumericId()}_${fallbackIdx}`;
+    let id = (typeof raw.id === 'string' && /^acc_[a-zA-Z0-9_-]{1,40}$/.test(raw.id))
+    ? raw.id
+    : `acc_${generateUniqueNumericId()}_${fallbackIdx}`;
 
     if (existingIds.has(id)) {
         id = `acc_${generateUniqueNumericId()}_${fallbackIdx}`;
@@ -78,10 +119,11 @@ function sanitizeAccountObject(raw, fallbackIdx = 0, existingIds = new Set()) {
 function sanitizeGoalObject(raw, fallbackIdx = 0) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const id = Number.isSafeInteger(Number(raw.id)) && Number(raw.id) > 0
-        ? Number(raw.id)
-        : (generateUniqueNumericId() + fallbackIdx);
+    ? Number(raw.id)
+    : (generateUniqueNumericId() + fallbackIdx);
     const name = normalizePlainText(raw.name, 50);
     if (!name) return null;
+    const storeIn = formatNormalizedStoreLabel(raw.storeIn);
     return {
         id,
         name,
@@ -89,7 +131,7 @@ function sanitizeGoalObject(raw, fallbackIdx = 0) {
         current: sanitizeFiniteAmount(raw.current),
         monthly: sanitizeFiniteAmount(raw.monthly),
         category: normalizePlainText(raw.category, 40) || 'Target Lainnya',
-        storeIn: normalizePlainText(raw.storeIn, 35) || 'Kas Utama',
+        storeIn,
         sourceFromId: isValidAccountId(raw.sourceFromId) ? raw.sourceFromId : 'acc_main',
         sourceFromName: normalizePlainText(raw.sourceFromName, 35) || 'Kas Utama'
     };
@@ -98,8 +140,8 @@ function sanitizeGoalObject(raw, fallbackIdx = 0) {
 function sanitizeLogObject(raw, fallbackIdx = 0) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const id = Number.isSafeInteger(Number(raw.id)) && Number(raw.id) > 0
-        ? Number(raw.id)
-        : (generateUniqueNumericId() + fallbackIdx);
+    ? Number(raw.id)
+    : (generateUniqueNumericId() + fallbackIdx);
     const date = isValidIsoDate(raw.date) ? raw.date : getLocalDateString();
     const type = ALLOWED_MUTATION_TYPES.has(raw.type) ? raw.type : 'PENGELUARAN';
     const accountId = isValidAccountId(raw.accountId) ? raw.accountId : 'acc_main';
@@ -107,7 +149,19 @@ function sanitizeLogObject(raw, fallbackIdx = 0) {
     const title = normalizePlainText(raw.title, 80) || 'Transaksi';
     const amount = sanitizeFiniteAmount(raw.amount);
     const notes = normalizePlainText(raw.notes, 120);
-    return { id, date, type, accountId, category, title, amount, notes };
+    const goalAllocations = (type === 'PENGELUARAN') ? sanitizeGoalAllocationsArray(raw.goalAllocations) : [];
+    const goalStoreLabel = (type === 'PENGELUARAN' && typeof raw.goalStoreLabel === 'string')
+    ? formatNormalizedStoreLabel(raw.goalStoreLabel)
+    : '';
+
+    const cleanLog = { id, date, type, accountId, category, title, amount, notes };
+    if (goalAllocations.length > 0) {
+        cleanLog.goalAllocations = goalAllocations;
+    }
+    if (goalStoreLabel) {
+        cleanLog.goalStoreLabel = goalStoreLabel;
+    }
+    return cleanLog;
 }
 
 function sanitizeSettingsObject(raw) {
@@ -126,7 +180,10 @@ function sanitizeSettingsObject(raw) {
             clean.savingsMode = raw.savingsMode;
         } else if (key === 'accounts' && Array.isArray(raw.accounts)) {
             const seenIds = new Set();
-            const validAccs = raw.accounts.map((a, i) => sanitizeAccountObject(a, i, seenIds)).filter(Boolean);
+            const validAccs = raw.accounts
+            .slice(0, MAX_ACCOUNTS_COUNT)
+            .map((a, i) => sanitizeAccountObject(a, i, seenIds))
+            .filter(Boolean);
             if (validAccs.length > 0) clean.accounts = validAccs;
         } else if (key === 'dailyLimit') {
             clean.dailyLimit = sanitizeFiniteAmount(raw.dailyLimit);
